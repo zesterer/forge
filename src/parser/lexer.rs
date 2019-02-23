@@ -201,13 +201,20 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 },
             },
             State::Comment => match c {
-                '\n' => state = State::Default,
+                '\n' | '\0' => state = State::Default,
                 _ => {},
             },
             State::String => match c {
                 '"' => /*"*/ {
                     tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc)));
                     state = State::Default;
+                },
+                '\0' => {
+                    errors.push(ParseError::At(
+                        SrcRef::end(),
+                        Box::new(ParseError::UnexpectedEof),
+                    ));
+                    break;
                 },
                 c => strbuf.push(c),
             },

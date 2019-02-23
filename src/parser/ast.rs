@@ -4,6 +4,7 @@ use super::SrcRef;
 pub struct Node<T>(pub T, pub SrcRef);
 
 pub enum Expr {
+    None,
     LiteralNumber(f64),
     LiteralString(String),
     LiteralBoolean(bool),
@@ -53,6 +54,7 @@ impl std::fmt::Display for Spaces {
 impl Expr {
     pub fn print_debug(&self, depth: usize) {
         match self {
+            Expr::None => println!("{}None expression", Spaces(depth)),
             Expr::LiteralNumber(x) => println!("{}Number literal '{}'", Spaces(depth), x),
             Expr::LiteralString(s) => println!("{}String literal '{}'", Spaces(depth), s),
             Expr::LiteralBoolean(b) => println!("{}Boolean literal '{}'", Spaces(depth), b),

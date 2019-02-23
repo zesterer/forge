@@ -162,6 +162,7 @@ pub trait Obj: Sized {
 pub trait Scope {
     fn eval_expr(&self, expr: &Expr, io: &mut dyn Io) -> ExecResult<Value> {
         match expr {
+            Expr::None => Ok(Value::Null),
             Expr::LiteralNumber(x) => Ok(Value::Number(*x)),
             Expr::LiteralString(s) => Ok(Value::String(s.to_string())),
             Expr::LiteralBoolean(b) => Ok(Value::Boolean(*b)),
@@ -193,7 +194,6 @@ pub trait Scope {
                 self.eval_expr(&left.0, io)?.eval_eq(&self.eval_expr(&right.0, io)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryNotEq(r, left, right) =>
                 self.eval_expr(&left.0, io)?.eval_not_eq(&self.eval_expr(&right.0, io)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
-            _ => unimplemented!(),
         }
     }
 }

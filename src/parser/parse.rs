@@ -259,7 +259,13 @@ impl<'a> ParseCtx<'a> {
     }
 
     pub fn read_expr_full(&mut self) -> ParseResult<Expr> {
-        let (expr, max_err) = self.read_expr()?;
+        let (expr, max_err) = match self.read_expr() {
+            Ok((expr, max_err)) => (expr, max_err),
+            Err(err) => return match self.peek() {
+                Token(Lexeme::Eof, _) => Ok(Expr::None),
+                _ => Err(err),
+            },
+        };
         match self.peek() {
             Token(Lexeme::Eof, _) => Ok(expr.0),
             Token(l, r) => Err(expected(Item::End, Item::Lexeme(l), r).max(max_err)),

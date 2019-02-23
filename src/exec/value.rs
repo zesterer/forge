@@ -127,6 +127,8 @@ impl Obj for Value {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x.clone() + y)),
             (Value::String(x), Value::String(y)) => Ok(Value::String(x.clone() + y)),
             (Value::String(x), Value::Number(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
+            (Value::String(x), Value::Boolean(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
+            (Value::String(x), Value::Null) => Ok(Value::String(x.clone() + &"null")),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "add",
                 left_type: this.get_type_string(),

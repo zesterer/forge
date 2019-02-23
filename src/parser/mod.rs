@@ -26,6 +26,7 @@ use self::{
 #[derive(Debug)]
 pub enum ParseError {
     UnexpectedChar(char),
+    UnexpectedEof,
     Expected(Item, Item), // Expected, found
     ReservedKeyword(String),
     At(SrcRef, Box<ParseError>),
