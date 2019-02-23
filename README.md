@@ -29,6 +29,7 @@ while n < 10 {
 - Lightweight, quick to parse
 - Moderately fast execution speeds
 - Well-considered, 'common-sense' design
+- Useful, informative error messages
 - Easy to build into an existing codebase
 - Python-like REPL prompt
 
@@ -52,3 +53,27 @@ Forge has several distinct types:
 Currently, Forge is only implemented as an AST-walking interpreter.
 In the future, I aim to generate more efficient low-level bytecode for the language.
 I also aim to implement many a variety of optimisations throughout the compilation process.
+
+### Error Messages
+
+Forge aims to produce the most useful, informative and intelligence error messages it can.
+Errors can be emitted at compile-time or run-time. Below are a few examples.
+
+```
+>> var x = 1; if x > 2 { print "Hello, world!" oops; }
+[ERROR] Parsing error at 1:45...
+   ...while parsing if-else statement...
+   ...while parsing print statement...
+   |1:45| var x = 1; if x > 2 { print "Hello, world!" oops; }
+                                                      ^^^^
+   Expected ';' (did you forget to add one on the previous line?), found identifier 'oops'.
+```
+
+```
+>> var p = true; while p { print "On the next iteration, p will be null"; p = null; }
+On the next iteration, p will be null
+[ERROR] Runtime error at 1:21...
+   |1:21| var p = true; while p { print "On the next iteration, p will be null"; p = null; }
+                              ^
+   Cannot determine the truthiness of value of type 'null'. Did you mean for this to be a bool?
+```
