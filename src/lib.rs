@@ -7,6 +7,8 @@ mod output;
 
 // Reexports
 pub use exec::{
+    ExecError,
+    ExecResult,
     Io,
     DefaultIo,
     Value,
@@ -17,7 +19,10 @@ pub use error::{
     ForgeError,
 };
 
-use std::ops::DerefMut;
+use std::{
+    ops::DerefMut,
+    collections::HashMap,
+};
 
 pub struct EngineBuilder {
     io: Box<dyn Io>,
@@ -32,7 +37,7 @@ impl EngineBuilder {
     pub fn finish(self) -> Engine {
         Engine {
             io: self.io,
-            global_scope: GlobalScope,
+            global_scope: GlobalScope::empty(),
         }
     }
 }
@@ -82,6 +87,37 @@ impl Default for Engine {
     }
 }
 
-struct GlobalScope;
+struct GlobalScope {
+    vars: HashMap<String, Value>,
+}
 
-impl Scope for GlobalScope {}
+impl GlobalScope {
+    pub fn empty() -> Self {
+        Self {
+            vars: HashMap::new(),
+        }
+    }
+}
+
+impl Scope for GlobalScope {
+    fn get_var(&self, name: &str) -> ExecResult<Value> {
+        self.vars
+            .get(name)
+            .cloned()
+            .ok_or(ExecError::NoSuchItem(name.to_string()))
+    }
+
+    fn declare_var(&mut self, name: String, val: Value) -> ExecResult<()> {
+        self.vars
+            .insert(name.clone(), val)
+            .and(Some(Err(ExecError::ItemExists(name))))
+            .unwrap_or(Ok(()))
+    }
+
+    fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()> {
+        self.vars
+            .get_mut(name)
+            .map(|v| *v = val)
+            .ok_or(ExecError::NoSuchItem(name.to_string()))
+    }
+}

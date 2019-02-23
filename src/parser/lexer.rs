@@ -1,3 +1,4 @@
+use std::fmt;
 use super::{
     ParseError,
     ParseResult,
@@ -25,6 +26,7 @@ pub enum Lexeme {
     Minus,   MinusEq,
     Star,    StarEq,
     Slash,   SlashEq,
+    Percent, PercentEq,
 
     // Literals
     Ident(String),
@@ -44,48 +46,80 @@ pub enum Lexeme {
     Print,
 
     // Misc
-    AnyIdent,
-    AnyString,
-    AnyNumber,
     Reserved,
     Eof,
 }
 
-const RESERVED_KEYWORDS: [&'static str; 34] = [
-    "let",
-    "self",
-    "Self",
-    "extern",
-    "move",
-    "mut",
-    "enum",
-    "const",
-    "as",
-    "loop",
-    "pub",
-    "priv",
-    "ref",
-    "match",
-    "use",
-    "where",
-    "do",
-    "clone",
-    "type",
-    "class",
-    "base",
-    "super",
-    "struct",
-    "trait",
-    "impl",
-    "of",
-    "with",
-    "when",
-    "then",
-    "await",
-    "async",
-    "continue",
-    "yield",
-    "mut",
+impl fmt::Display for Lexeme {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Lexeme::LParen => write!(f, "("),
+            Lexeme::RParen => write!(f, ")"),
+            Lexeme::LBrace => write!(f, "{{"),
+            Lexeme::RBrace => write!(f, "}}"),
+            Lexeme::LBrack => write!(f, "["),
+            Lexeme::RBrack => write!(f, "]"),
+            Lexeme::Comma => write!(f, ","),
+            Lexeme::Dot => write!(f, "."),
+            Lexeme::Semicolon => write!(f, ";"),
+            Lexeme::Pipe => write!(f, "|"),
+
+            Lexeme::Bang =>      write!(f, "!"),
+            Lexeme::BangEq =>    write!(f, "!="),
+            Lexeme::Assign =>    write!(f, "="),
+            Lexeme::Eq =>        write!(f, "=="),
+            Lexeme::Greater =>   write!(f, ">"),
+            Lexeme::GreaterEq => write!(f, ">="),
+            Lexeme::Less =>      write!(f, "<"),
+            Lexeme::LessEq =>    write!(f, "<="),
+            Lexeme::Plus =>      write!(f, "+"),
+            Lexeme::PlusEq =>    write!(f, "+="),
+            Lexeme::Minus =>     write!(f, "-"),
+            Lexeme::MinusEq =>   write!(f, "-="),
+            Lexeme::Star =>      write!(f, "*"),
+            Lexeme::StarEq =>    write!(f, "*="),
+            Lexeme::Slash =>     write!(f, "/"),
+            Lexeme::SlashEq =>   write!(f, "/="),
+            Lexeme::Percent =>   write!(f, "%"),
+            Lexeme::PercentEq => write!(f, "%="),
+
+            Lexeme::Ident(s) => write!(f, "{}", s),
+            Lexeme::String(s) => write!(f, "\"{}\"", s),
+            Lexeme::Number(x) => write!(f, "{}", x),
+            Lexeme::True => write!(f, "true"),
+            Lexeme::False => write!(f, "false"),
+            Lexeme::Null => write!(f, "null"),
+
+            Lexeme::And => write!(f, "and"),
+            Lexeme::Or => write!(f, "or"),
+            Lexeme::Xor => write!(f, "xor"),
+            Lexeme::In => write!(f, "in"),
+            Lexeme::If => write!(f, "if"),
+            Lexeme::Else => write!(f, "else"),
+            Lexeme::Break => write!(f, "break"),
+            Lexeme::Return => write!(f, "return"),
+            Lexeme::For => write!(f, "for"),
+            Lexeme::While => write!(f, "while"),
+            Lexeme::Fn => write!(f, "fn"),
+            Lexeme::This => write!(f, "this"),
+            Lexeme::Var => write!(f, "var"),
+            Lexeme::Print => write!(f, "print"),
+
+            Lexeme::Reserved => write!(f, "<reserved>"),
+            Lexeme::Eof => write!(f, "EOF"),
+        }
+    }
+}
+
+const RESERVED_KEYWORDS: [&'static str; 38] = [
+    "let",      "self",   "Self",  "extern", "move",
+    "mut",      "enum",   "num",   "string", "str",
+    "bool",     "const",  "as",    "loop",   "pub",
+    "priv",     "ref",    "match", "use",    "where",
+    "do",       "clone",  "type",  "class",  "base",
+    "super",    "struct", "trait", "impl",   "of",
+    "with",     "when",   "then",  "await",  "async",
+    "continue", "yield",  "mut",
 ];
 
 #[derive(Clone, Debug)]
@@ -174,6 +208,12 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 } else {
                     tokens.push(Token(Lexeme::Slash, SrcRef::single(loc)));
                 },
+                '%' => if chars.clone().nth(1) == Some('=') {
+                    tokens.push(Token(Lexeme::PercentEq, SrcRef::double(loc)));
+                    incr = 2;
+                } else {
+                    tokens.push(Token(Lexeme::Percent, SrcRef::single(loc)));
+                },
                 '#' => state = State::Comment,
                 '"' => /*"*/ {
                     strbuf.clear();
@@ -206,7 +246,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
             },
             State::String => match c {
                 '"' => /*"*/ {
-                    tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc)));
+                    tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc.next_col())));
                     state = State::Default;
                 },
                 '\0' => {

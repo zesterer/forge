@@ -2,11 +2,12 @@ use std::{
     rc::Rc,
     cmp::PartialEq,
 };
-use crate::parser::ast::{
-    Node,
-    Args,
-    Block,
-    Function,
+use crate::parser::{
+    SrcRef,
+    ast::{
+        Node,
+        Function,
+    },
 };
 use super::{
     Obj,
@@ -68,9 +69,9 @@ impl PartialEq<bool> for Value {
 impl Obj for Value {
     fn get_type_name(&self) -> String {
         match self {
-            Value::Number(x) => String::from("number"),
-            Value::String(s) => String::from("string"),
-            Value::Boolean(b) => String::from("bool"),
+            Value::Number(_) => String::from("number"),
+            Value::String(_) => String::from("string"),
+            Value::Boolean(_) => String::from("bool"),
             Value::Fn(_) => String::from("function"),
             Value::Null => String::from("null"),
         }
@@ -83,6 +84,13 @@ impl Obj for Value {
             Value::Boolean(b) => format!("{}", b),
             Value::Fn(_) => String::from("<function>"),
             Value::Null => String::from("<null>"),
+        }
+    }
+
+    fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
+        match self {
+            Value::Boolean(b) => Ok(*b),
+            _ => Err(ExecError::Truthiness(r, self.get_type_name())),
         }
     }
 
@@ -125,6 +133,18 @@ impl Obj for Value {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x / *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "div",
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
+            }),
+        }
+    }
+
+    fn eval_mod(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+        match (self, rhs) {
+            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x % *y)),
+            (this, rhs) => Err(ExecError::BinaryOp {
+                op: "mod",
                 left_type: this.get_type_name(),
                 right_type: rhs.get_type_name(),
                 refs,
@@ -212,7 +232,7 @@ impl Obj for Value {
         }
     }
 
-    fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_eq(&self, rhs: &Value, _refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x == *y)),
@@ -223,7 +243,7 @@ impl Obj for Value {
         }
     }
 
-    fn eval_not_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_not_eq(&self, rhs: &Value, _refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x != *y)),
@@ -231,6 +251,42 @@ impl Obj for Value {
             (Value::Fn(x), Value::Fn(y)) => Ok(Value::Boolean(!Rc::ptr_eq(&x, &y))),
             (Value::Null, Value::Null) => Ok(Value::Boolean(false)),
             _ => Ok(Value::Boolean(true)),
+        }
+    }
+
+    fn eval_and(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+        match (self, rhs) {
+            (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x && *y)),
+            (this, rhs) => Err(ExecError::BinaryOp {
+                op: "and",
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
+            }),
+        }
+    }
+
+    fn eval_or(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+        match (self, rhs) {
+            (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x || *y)),
+            (this, rhs) => Err(ExecError::BinaryOp {
+                op: "or",
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
+            }),
+        }
+    }
+
+    fn eval_xor(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+        match (self, rhs) {
+            (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x ^ *y)),
+            (this, rhs) => Err(ExecError::BinaryOp {
+                op: "xor",
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
+            }),
         }
     }
 }

@@ -65,3 +65,44 @@ fn arithmetic() {
     assert!(engine.eval(r#"7 / -1"#).unwrap() == -7.0);
     assert!(engine.eval(r#"1 / 2"#).unwrap() == 0.5);
 }
+
+#[test]
+fn order_of_operations() {
+    let mut engine = forge::Engine::default();
+
+    assert!(engine.eval(r#"5 * 2 + 1"#).unwrap() == 11.0);
+    assert!(engine.eval(r#"5 * 2 - 1"#).unwrap() ==  9.0);
+    assert!(engine.eval(r#"1 + 5 * 2"#).unwrap() == 11.0);
+    assert!(engine.eval(r#"1 - 5 * 2"#).unwrap() == -9.0);
+    assert!(engine.eval(r#"1 + 5 / 2"#).unwrap() ==  3.5);
+    assert!(engine.eval(r#"5 / 2 - 1"#).unwrap() ==  1.5);
+
+    assert!(engine.eval(r#"5 + 1 == 6"#).unwrap() == true);
+    assert!(engine.eval(r#"4 == (5 - 1) and !(4 == 6)"#).unwrap() == true);
+
+    assert!(engine.eval(r#"5 >= 5 != false"#).unwrap() == true);
+    assert!(engine.eval(r#"5 > 5 != true"#).unwrap() == true);
+}
+
+#[test]
+fn logical_operations() {
+    let mut engine = forge::Engine::default();
+
+    assert!(engine.eval(r#"true and true"#).unwrap() == true);
+    assert!(engine.eval(r#"true and false"#).unwrap() == false);
+    assert!(engine.eval(r#"false and true"#).unwrap() == false);
+    assert!(engine.eval(r#"false and false"#).unwrap() == false);
+
+    assert!(engine.eval(r#"true or true"#).unwrap() == true);
+    assert!(engine.eval(r#"true or false"#).unwrap() == true);
+    assert!(engine.eval(r#"false or true"#).unwrap() == true);
+    assert!(engine.eval(r#"false or false"#).unwrap() == false);
+
+    assert!(engine.eval(r#"true xor true"#).unwrap() == false);
+    assert!(engine.eval(r#"true xor false"#).unwrap() == true);
+    assert!(engine.eval(r#"false xor true"#).unwrap() == true);
+    assert!(engine.eval(r#"false xor false"#).unwrap() == false);
+
+    assert!(engine.eval(r#"!false"#).unwrap() == true);
+    assert!(engine.eval(r#"!true"#).unwrap() == false);
+}

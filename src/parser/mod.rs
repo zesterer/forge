@@ -16,7 +16,6 @@ pub use self::{
     },
 };
 
-use std::rc::Rc;
 use self::{
     lexer::{
         lex,
@@ -36,14 +35,12 @@ use self::{
 
 pub struct Parser {
     tokens: Vec<Token>,
-    code: String,
 }
 
 impl Parser {
     pub fn new(code: &str) -> ParseResult<Self> {
         Ok(Self {
             tokens: lex(code)?,
-            code: code.to_string(),
         })
     }
 
@@ -59,6 +56,13 @@ impl Parser {
     }
 
     pub fn parse_stmts(&self) -> ParseResult<Vec<Node<Stmt>>> {
+        // TODO: Remove this
+        /*
+        for tok in &self.tokens {
+            println!("{:?}", tok);
+        }
+        */
+
         ParseCtx::new(self.tokens.iter()).read_stmts_full()
     }
 }

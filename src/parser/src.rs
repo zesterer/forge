@@ -1,6 +1,5 @@
 use std::{
     fmt,
-    rc::Rc,
     cmp::{
         Ordering,
         PartialOrd,
@@ -159,7 +158,7 @@ impl SrcRef {
         }
     }
 
-    pub fn length_in(&self, src: &str) -> Option<usize> {
+    pub fn length_in(&self, _src: &str) -> Option<usize> {
         match self {
             SrcRef::Range { start, limit } => match (start, limit) {
                 (

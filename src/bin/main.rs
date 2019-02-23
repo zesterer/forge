@@ -1,17 +1,28 @@
 use forge::Engine;
 
 fn main() {
-    Engine::default()
+    let result = Engine::default()
         .execute(r#"
-print "Hello, world!";
-trait
-let x = 5;
-print "Testing!";
-@
-class TestClass
-"
-print 47 + 8;
+
+var c = 0;
+while c < 10 {
+    print "Iteration " + c + "!";
+    if c % 2 == 0 {
+        print "Even!";
+    } else {
+        print "Odd!";
+    }
+    c = c + 1;
+}
+var x = 0;
+while true {
+    print x;
+    x = x + 1;
+}
+
         "#)
-        .unwrap_or_else(|e| print!("{}", e));
+        .map_err(|e| print!("{}", e));
+
+    println!("Result = {:?}", result);
 }
 

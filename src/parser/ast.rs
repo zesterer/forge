@@ -10,13 +10,14 @@ pub enum Expr {
     LiteralString(String),
     LiteralBoolean(bool),
     LiteralNull,
-    Ident(String),
+    Ident(Node<String>),
     DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
     Call(SrcRef, Box<Node<Expr>>, Vec<Node<Expr>>),
     UnaryNot(SrcRef, Box<Node<Expr>>),
     UnaryNeg(SrcRef, Box<Node<Expr>>),
     BinaryMul(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryDiv(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryMod(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryAdd(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinarySub(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryGreater(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
@@ -25,6 +26,9 @@ pub enum Expr {
     BinaryLessEq(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryEq(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryNotEq(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryAnd(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryOr(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryXor(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
 }
 
 #[derive(Debug)]
@@ -43,6 +47,11 @@ pub struct Function {
 pub enum Stmt {
     Expr(Node<Expr>),
     Print(Node<Expr>),
+    If(Node<Expr>, Node<Block>),
+    IfElse(Node<Expr>, Node<Block>, Node<Block>),
+    While(Node<Expr>, Node<Block>),
+    Decl(Node<String>, Node<Expr>),
+    Assign(Node<String>, Node<Expr>),
 }
 
 // Utility
@@ -66,7 +75,7 @@ impl Expr {
             Expr::LiteralString(s) => println!("{}String literal '{}'", Spaces(depth), s),
             Expr::LiteralBoolean(b) => println!("{}Boolean literal '{}'", Spaces(depth), b),
             Expr::LiteralNull => println!("{}Null literal", Spaces(depth)),
-            Expr::Ident(s) => println!("{}Identifier '{}'", Spaces(depth), s),
+            Expr::Ident(s) => println!("{}Identifier '{}'", Spaces(depth), s.0),
             Expr::DotAccess(_, expr, s) => {
                 println!("{}Dot accessor '{}'", Spaces(depth), s.0);
                 expr.0.print_debug(depth + 1);
@@ -94,6 +103,11 @@ impl Expr {
             },
             Expr::BinaryDiv(_, left, right) => {
                 println!("{}Binary div", Spaces(depth));
+                left.0.print_debug(depth + 1);
+                right.0.print_debug(depth + 1);
+            },
+            Expr::BinaryMod(_, left, right) => {
+                println!("{}Binary mod", Spaces(depth));
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
@@ -137,6 +151,21 @@ impl Expr {
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
+            Expr::BinaryAnd(_, left, right) => {
+                println!("{}Binary and", Spaces(depth));
+                left.0.print_debug(depth + 1);
+                right.0.print_debug(depth + 1);
+            },
+            Expr::BinaryOr(_, left, right) => {
+                println!("{}Binary or", Spaces(depth));
+                left.0.print_debug(depth + 1);
+                right.0.print_debug(depth + 1);
+            },
+            Expr::BinaryXor(_, left, right) => {
+                println!("{}Binary xor", Spaces(depth));
+                left.0.print_debug(depth + 1);
+                right.0.print_debug(depth + 1);
+            },
         }
     }
 }
@@ -152,6 +181,39 @@ impl Stmt {
                 println!("{}Print statement", Spaces(depth));
                 expr.0.print_debug(depth + 1);
             },
+            Stmt::If(expr, block) => {
+                println!("{}If statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+                block.0.print_debug(depth + 1);
+            },
+            Stmt::IfElse(expr, true_block, false_block) => {
+                println!("{}If-else statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+                true_block.0.print_debug(depth + 1);
+                false_block.0.print_debug(depth + 1);
+            },
+            Stmt::While(expr, block) => {
+                println!("{}While statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+                block.0.print_debug(depth + 1);
+            },
+            Stmt::Decl(ident, expr) => {
+                println!("{}Declaration statement '{}'", Spaces(depth), ident.0);
+                expr.0.print_debug(depth + 1);
+            },
+            Stmt::Assign(ident, expr) => {
+                println!("{}Assignment statement '{}'", Spaces(depth), ident.0);
+                expr.0.print_debug(depth + 1);
+            },
+        }
+    }
+}
+
+impl Block {
+    pub fn print_debug(&self, depth: usize) {
+        println!("{}Block", Spaces(depth));
+        for stmt in &self.0 {
+            stmt.0.print_debug(depth + 2);
         }
     }
 }

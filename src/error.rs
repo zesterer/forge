@@ -26,9 +26,9 @@ impl From<ExecError> for ForgeError {
 }
 
 impl ForgeError {
-    fn fmt_nice(&self, f: &mut fmt::Formatter, src: Option<&str>, depth: usize) -> fmt::Result {
+    fn fmt_nice(&self, f: &mut fmt::Formatter, src: Option<&str>, _depth: usize) -> fmt::Result {
         match self {
-            ForgeError::Parse(err) => err.fmt_nice(f, src, 0),
+            ForgeError::Parse(err) => err.fmt_nice(f, src, 0, vec![]),
             ForgeError::Exec(err) => err.fmt_nice(f, src, 0),
             _ => Ok(()),
         }
