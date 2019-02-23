@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     rc::Rc,
     cmp::{
         Ordering,
@@ -48,6 +49,14 @@ impl SrcLoc {
     pub fn end() -> Self {
         SrcLoc::End
     }
+
+    pub fn pos(&self) -> Option<(usize, usize)> {
+        match self {
+            SrcLoc::At { line, col } => Some((*line, *col)),
+            SrcLoc::End => None,
+            SrcLoc::Nowhere => None,
+        }
+    }
 }
 
 impl PartialOrd for SrcLoc {
@@ -65,6 +74,16 @@ impl PartialOrd for SrcLoc {
             (SrcLoc::End, SrcLoc::At { .. }) => Some(Ordering::Greater),
             (SrcLoc::At { .. }, SrcLoc::End) => Some(Ordering::Less),
             _ => None,
+        }
+    }
+}
+
+impl fmt::Display for SrcLoc {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SrcLoc::At { line, col } => write!(f, "{}:{}", line, col),
+            SrcLoc::End => write!(f, "end of input"),
+            SrcLoc::Nowhere => write!(f, "(none)"),
         }
     }
 }
@@ -111,6 +130,13 @@ impl SrcRef {
         SrcRef::Empty
     }
 
+    pub fn start(&self) -> SrcLoc {
+        match self {
+            SrcRef::Range { start, .. } => *start,
+            SrcRef::Empty => SrcLoc::Nowhere,
+        }
+    }
+
     pub fn limit(&self) -> SrcLoc {
         match self {
             SrcRef::Range { limit, .. } => *limit,
@@ -130,6 +156,32 @@ impl SrcRef {
             (SrcRef::Empty, SrcRef::Empty) => SrcRef::Empty,
             (this, SrcRef::Empty) => *this,
             (SrcRef::Empty, other) => *other,
+        }
+    }
+
+    pub fn length_in(&self, src: &str) -> Option<usize> {
+        match self {
+            SrcRef::Range { start, limit } => match (start, limit) {
+                (
+                    SrcLoc::At { line: l0, col: c0 },
+                    SrcLoc::At { line: l1, col: c1 },
+                ) => if l0 == l1 {
+                    Some(c1 - c0)
+                } else {
+                    None
+                },
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for SrcRef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SrcRef::Range { start, limit } => write!(f, "{} to {}", start, limit),
+            SrcRef::Empty => write!(f, "(empty)"),
         }
     }
 }

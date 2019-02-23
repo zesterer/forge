@@ -212,7 +212,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 '\0' => {
                     errors.push(ParseError::At(
                         SrcRef::end(),
-                        Box::new(ParseError::UnexpectedEof),
+                        Box::new(ParseError::ExpectedDelimiter('"')), /*"*/
                     ));
                     break;
                 },

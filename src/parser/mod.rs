@@ -1,12 +1,19 @@
 pub mod ast;
+pub mod error;
 pub mod lexer;
 pub mod parse;
 pub mod src;
 
 // Reexports
-pub use self::src::{
-    SrcRef,
-    SrcLoc,
+pub use self::{
+    src::{
+        SrcRef,
+        SrcLoc,
+    },
+    error::{
+        ParseError,
+        ParseResult,
+    },
 };
 
 use std::rc::Rc;
@@ -20,33 +27,12 @@ use self::{
         Item,
         ParseCtx,
     },
-    ast::Expr,
+    ast::{
+        Node,
+        Expr,
+        Stmt,
+    },
 };
-
-#[derive(Debug)]
-pub enum ParseError {
-    UnexpectedChar(char),
-    UnexpectedEof,
-    Expected(Item, Item), // Expected, found
-    ReservedKeyword(String),
-    At(SrcRef, Box<ParseError>),
-    Many(Vec<ParseError>),
-}
-
-impl ParseError {
-    pub fn max(self, other: Self) -> Self {
-        match (self, other) {
-            (ParseError::At(r0, e0), ParseError::At(r1, e1)) => if r0.limit() > r1.limit() {
-                ParseError::At(r0, e0)
-            } else {
-                ParseError::At(r1, e1)
-            },
-            (this, _) => this,
-        }
-    }
-}
-
-pub type ParseResult<T> = Result<T, ParseError>;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -70,5 +56,9 @@ impl Parser {
         */
 
         ParseCtx::new(self.tokens.iter()).read_expr_full()
+    }
+
+    pub fn parse_stmts(&self) -> ParseResult<Vec<Node<Stmt>>> {
+        ParseCtx::new(self.tokens.iter()).read_stmts_full()
     }
 }

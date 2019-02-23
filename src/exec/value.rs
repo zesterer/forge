@@ -66,7 +66,7 @@ impl PartialEq<bool> for Value {
 }
 
 impl Obj for Value {
-    fn get_type_string(&self) -> String {
+    fn get_type_name(&self) -> String {
         match self {
             Value::Number(x) => String::from("number"),
             Value::String(s) => String::from("string"),
@@ -76,53 +76,63 @@ impl Obj for Value {
         }
     }
 
-    fn eval_not(&self, unary_op_ref: UnaryOpRef) -> ExecResult<Value> {
+    fn get_display_text(&self) -> String {
+        match self {
+            Value::Number(x) => format!("{}", x),
+            Value::String(s) => s.clone(),
+            Value::Boolean(b) => format!("{}", b),
+            Value::Fn(_) => String::from("<function>"),
+            Value::Null => String::from("<null>"),
+        }
+    }
+
+    fn eval_not(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Boolean(b) => Ok(Value::Boolean(!b)),
             _ => Err(ExecError::UnaryOp {
                 op: "not",
-                expr_type: self.get_type_string(),
-                unary_op_ref,
+                expr_type: self.get_type_name(),
+                refs,
             })
         }
     }
 
-    fn eval_neg(&self, unary_op_ref: UnaryOpRef) -> ExecResult<Value> {
+    fn eval_neg(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Number(x) => Ok(Value::Number(-x)),
             _ => Err(ExecError::UnaryOp {
                 op: "not",
-                expr_type: self.get_type_string(),
-                unary_op_ref,
+                expr_type: self.get_type_name(),
+                refs,
             })
         }
     }
 
-    fn eval_mul(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_mul(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x * *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "mul",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_div(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_div(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x / *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "div",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_add(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_add(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x.clone() + y)),
             (Value::String(x), Value::String(y)) => Ok(Value::String(x.clone() + y)),
@@ -131,78 +141,78 @@ impl Obj for Value {
             (Value::String(x), Value::Null) => Ok(Value::String(x.clone() + &"null")),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "add",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_sub(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_sub(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x - *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "sub",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_greater(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_greater(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x > *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x > *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "greater",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_greater_eq(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_greater_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x >= *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x >= *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "greater_eq",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_less(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_less(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x < *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x < *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "less",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_less_eq(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_less_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x <= *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x <= *y)),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "less_eq",
-                left_type: this.get_type_string(),
-                right_type: rhs.get_type_string(),
-                binary_op_ref,
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
             }),
         }
     }
 
-    fn eval_eq(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x == *y)),
@@ -213,7 +223,7 @@ impl Obj for Value {
         }
     }
 
-    fn eval_not_eq(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_not_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x != *y)),

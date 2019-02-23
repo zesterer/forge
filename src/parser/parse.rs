@@ -1,6 +1,7 @@
 use std::{
     slice,
     rc::Rc,
+    fmt,
 };
 use super::{
     ParseError,
@@ -10,8 +11,9 @@ use super::{
     Token,
     Lexeme,
     ast::{
-        Expr,
         Node,
+        Expr,
+        Stmt,
     },
 };
 
@@ -20,7 +22,24 @@ pub enum Item {
     Lexeme(Lexeme),
     Ident,
     Primary,
+    Stmt,
     End,
+}
+
+impl fmt::Display for Item {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Item::Lexeme(lexeme) => match lexeme {
+                Lexeme::Ident(ident) => write!(f, "identifier '{}'", ident),
+                Lexeme::Semicolon => write!(f, "semicolon (did you forget to add one on the previous line?)"),
+                lexeme => write!(f, "{:?}", lexeme),
+            },
+            Item::Ident => write!(f, "identifier"),
+            Item::Primary => write!(f, "primary expression"),
+            Item::Stmt => write!(f, "statement"),
+            Item::End => write!(f, "end of input"),
+        }
+    }
 }
 
 fn expected(expected: Item, found: Item, src_ref: SrcRef) -> ParseError {
@@ -50,15 +69,15 @@ impl<'a> ParseCtx<'a> {
             .unwrap_or(SrcRef::end())
     }
 
-    pub fn advance(&mut self) {
+    fn advance(&mut self) {
         self.tokens.next();
     }
 
-    pub fn peek(&self) -> Token {
+    fn peek(&self) -> Token {
         self.tokens.clone().next().unwrap_or(&Token(Lexeme::Eof, SrcRef::end())).clone()
     }
 
-    pub fn read_lexeme(&mut self, lexeme: Lexeme) -> ParseResult<SrcRef> {
+    fn read_lexeme(&mut self, lexeme: Lexeme) -> ParseResult<SrcRef> {
         match self.peek() {
             Token(l, r) if l == lexeme => {
                 self.advance();
@@ -68,7 +87,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_ident(&mut self) -> ParseResult<Node<String>> {
+    fn read_ident(&mut self) -> ParseResult<Node<String>> {
         match self.peek() {
             Token(Lexeme::Ident(s), r) => {
                 self.advance();
@@ -78,7 +97,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_primary(&mut self) -> ParseResult<Node<Expr>> {
+    fn read_primary(&mut self) -> ParseResult<Node<Expr>> {
         let expr = match self.peek() {
             Token(Lexeme::Number(x), r) => Node(Expr::LiteralNumber(x), r),
             Token(Lexeme::String(s), r) => Node(Expr::LiteralString(s), r),
@@ -92,7 +111,7 @@ impl<'a> ParseCtx<'a> {
         Ok(expr)
     }
 
-    pub fn read_access(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_access(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let mut expr = self.read_primary()?;
 
         loop {
@@ -108,7 +127,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_call(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_call(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let (mut expr, max_err) = self.read_access()?;
 
         loop {
@@ -126,7 +145,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         Ok(match self.peek() {
             Token(Lexeme::Bang, r) => {
                 self.advance();
@@ -144,7 +163,7 @@ impl<'a> ParseCtx<'a> {
         })
     }
 
-    pub fn read_multiplication(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_multiplication(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let (mut expr, mut max_err) = self.read_unary()?;
 
         loop {
@@ -168,7 +187,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_addition(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_addition(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let (mut expr, mut max_err) = self.read_multiplication()?;
 
         loop {
@@ -192,7 +211,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_comparison(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_comparison(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let (mut expr, mut max_err) = self.read_addition()?;
 
         loop {
@@ -230,7 +249,7 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_equivalence(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_equivalence(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let (mut expr, mut max_err) = self.read_comparison()?;
 
         loop {
@@ -254,8 +273,93 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+    fn read_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         self.read_equivalence()
+    }
+
+    fn read_member(&mut self) -> ParseResult<(SrcRef, Node<String>)> {
+        let dot_r = match self.peek() {
+            Token(Lexeme::Dot, r) => { self.advance(); r},
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Dot), Item::Lexeme(l), r))
+        };
+        Ok((dot_r, self.read_ident()?))
+    }
+
+    fn read_paramlist(&mut self) -> ParseResult<Node<Vec<Node<Expr>>>> {
+        Err(ParseError::UnexpectedChar('!'))
+    }
+
+    fn read_expr_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
+        let (expr, max_err) = self.read_expr()?;
+
+        match self.peek() {
+            Token(Lexeme::Semicolon, r) => {
+                self.advance();
+                let r_union = expr.1.union(&r);
+                Ok((Node(Stmt::Expr(expr), r_union), max_err))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err)),
+        }
+    }
+
+    fn read_print_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
+        let r_start = match self.peek() {
+            Token(Lexeme::Print, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Print), Item::Lexeme(l), r)),
+        };
+
+        let (expr, max_err) = self.read_expr()?;
+
+        match self.peek() {
+            Token(Lexeme::Semicolon, r) => {
+                self.advance();
+                let r_union = expr.1.union(&r_start).union(&r);
+                Ok((Node(Stmt::Print(expr), r_union), max_err))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err)),
+        }
+    }
+
+    fn read_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
+        let mut this = self.clone();
+        let max_err = match this.read_expr_stmt() {
+            Ok((stmt, err)) => {
+                *self = this;
+                return Ok((stmt, err))
+            },
+            Err(err) => err,
+        };
+
+        let mut this = self.clone();
+        let max_err = match this.read_print_stmt() {
+            Ok((stmt, err)) => {
+                *self = this;
+                return Ok((stmt, err))
+            },
+            Err(err) => err.max(max_err),
+        };
+
+        let next = self.peek();
+        Err(expected(Item::Stmt, Item::Lexeme(next.0), next.1).max(max_err))
+    }
+
+    fn read_stmts(&mut self) -> ParseResult<(Vec<Node<Stmt>>, ParseError)> {
+        let mut stmts = vec![];
+
+        let mut max_err = ParseError::phoney();
+
+        loop {
+            let mut this = self.clone();
+
+            match this.read_stmt() { // TODO: Not this
+                Ok((stmt, err)) => {
+                    *self = this;
+                    stmts.push(stmt);
+                    max_err = err.max(max_err);
+                },
+                Err(err) => return Ok((stmts, err.max(max_err))),
+            }
+        }
     }
 
     pub fn read_expr_full(&mut self) -> ParseResult<Expr> {
@@ -272,15 +376,17 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    pub fn read_member(&mut self) -> ParseResult<(SrcRef, Node<String>)> {
-        let dot_r = match self.peek() {
-            Token(Lexeme::Dot, r) => { self.advance(); r},
-            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Dot), Item::Lexeme(l), r))
+    pub fn read_stmts_full(&mut self) -> ParseResult<Vec<Node<Stmt>>> {
+        let (stmts, max_err) = match self.read_stmts() {
+            Ok((stmts, max_err)) => (stmts, max_err),
+            Err(err) => return match self.peek() {
+                Token(Lexeme::Eof, _) => Ok(vec![]),
+                _ => Err(err),
+            },
         };
-        Ok((dot_r, self.read_ident()?))
-    }
-
-    pub fn read_paramlist(&mut self) -> ParseResult<Node<Vec<Node<Expr>>>> {
-        Err(ParseError::UnexpectedChar('!'))
+        match self.peek() {
+            Token(Lexeme::Eof, _) => Ok(stmts),
+            Token(l, r) => Err(expected(Item::End, Item::Lexeme(l), r).max(max_err)),
+        }
     }
 }

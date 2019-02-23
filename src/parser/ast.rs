@@ -1,8 +1,9 @@
 use super::SrcRef;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Node<T>(pub T, pub SrcRef);
 
+#[derive(Debug)]
 pub enum Expr {
     None,
     LiteralNumber(f64),
@@ -26,16 +27,22 @@ pub enum Expr {
     BinaryNotEq(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Args; // TODO
 
-#[derive(Clone, Debug)]
-pub struct Block; // TODO
+#[derive(Debug)]
+pub struct Block(pub Vec<Node<Stmt>>);
 
 #[derive(Debug)]
 pub struct Function {
     args: Node<Args>,
     block: Node<Block>,
+}
+
+#[derive(Debug)]
+pub enum Stmt {
+    Expr(Node<Expr>),
+    Print(Node<Expr>),
 }
 
 // Utility
@@ -129,6 +136,21 @@ impl Expr {
                 println!("{}Binary eq", Spaces(depth));
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
+            },
+        }
+    }
+}
+
+impl Stmt {
+    pub fn print_debug(&self, depth: usize) {
+        match self {
+            Stmt::Expr(expr) => {
+                println!("{}Expression statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+            },
+            Stmt::Print(expr) => {
+                println!("{}Print statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
             },
         }
     }
