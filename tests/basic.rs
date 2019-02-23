@@ -4,7 +4,7 @@ use forge;
 fn basic() {
     let mut engine = forge::Engine::default();
 
-    panic!("Result: {:?}", engine.eval(r#"
+    println!("Result: {:?}", engine.eval(r#"
         "world" == "world"
     "#));
 }

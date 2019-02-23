@@ -61,9 +61,12 @@ impl Parser {
     }
 
     pub fn parse_expr(&self) -> ParseResult<Expr> {
+        // TODO: Remove this
+        /*
         for tok in &self.tokens {
             println!("{:?}", tok);
         }
+        */
 
         ParseCtx::new(self.tokens.iter()).read_expr_full()
     }

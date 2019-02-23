@@ -52,7 +52,7 @@ impl Engine {
         let expr = parser::Parser::new(expr)?.parse_expr()?;
 
         // TODO: Remove this
-        expr.print_debug(0);
+        //expr.print_debug(0);
 
         Ok(self.global_scope.eval_expr(&expr, self.io.deref_mut())?)
     }

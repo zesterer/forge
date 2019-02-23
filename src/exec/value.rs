@@ -1,4 +1,7 @@
-use std::rc::Rc;
+use std::{
+    rc::Rc,
+    cmp::PartialEq,
+};
 use crate::parser::ast::{
     Node,
     Args,
@@ -20,6 +23,46 @@ pub enum Value {
     Boolean(bool),
     Fn(Rc<Node<Function>>),
     Null,
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Number(x), Value::Number(y)) => x.eq(y),
+            (Value::String(x), Value::String(y)) => x.eq(y),
+            (Value::Boolean(x), Value::Boolean(y)) => x.eq(y),
+            (Value::Fn(x), Value::Fn(y)) => Rc::ptr_eq(x, y),
+            (Value::Null, Value::Null) => true,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<f64> for Value {
+    fn eq(&self, other: &f64) -> bool {
+        match self {
+            Value::Number(x) => x.eq(other),
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<&'a str> for Value {
+    fn eq(&self, other: &&'a str) -> bool {
+        match self {
+            Value::String(x) => x.eq(*other),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<bool> for Value {
+    fn eq(&self, other: &bool) -> bool {
+        match self {
+            Value::Boolean(x) => x.eq(other),
+            _ => false,
+        }
+    }
 }
 
 impl Obj for Value {
@@ -165,6 +208,17 @@ impl Obj for Value {
             (Value::Fn(x), Value::Fn(y)) => Ok(Value::Boolean(Rc::ptr_eq(&x, &y))),
             (Value::Null, Value::Null) => Ok(Value::Boolean(true)),
             _ => Ok(Value::Boolean(false)),
+        }
+    }
+
+    fn eval_not_eq(&self, rhs: &Value, binary_op_ref: BinaryOpRef) -> ExecResult<Value> {
+        match (self, rhs) {
+            (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x != *y)),
+            (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x != *y)),
+            (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x != *y)),
+            (Value::Fn(x), Value::Fn(y)) => Ok(Value::Boolean(!Rc::ptr_eq(&x, &y))),
+            (Value::Null, Value::Null) => Ok(Value::Boolean(false)),
+            _ => Ok(Value::Boolean(true)),
         }
     }
 }
