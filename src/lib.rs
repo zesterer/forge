@@ -120,4 +120,8 @@ impl Scope for GlobalScope {
             .map(|v| *v = val)
             .ok_or(ExecError::NoSuchItem(name.to_string()))
     }
+
+    fn as_scope_mut(&mut self) -> &mut dyn Scope {
+        self
+    }
 }

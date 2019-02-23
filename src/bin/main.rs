@@ -6,6 +6,7 @@ fn main() {
 
 var c = 0;
 while c < 10 {
+    var test = "";
     print "Iteration " + c + "!";
     if c % 2 == 0 {
         print "Even!";
@@ -14,6 +15,7 @@ while c < 10 {
     }
     c = c + 1;
 }
+print test;
 var x = 0;
 while true {
     print x;

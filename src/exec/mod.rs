@@ -1,3 +1,4 @@
+mod block_scope;
 mod value;
 
 // Reexports
@@ -15,6 +16,7 @@ use crate::{
         },
     },
 };
+use block_scope::BlockScope;
 
 #[derive(Debug)]
 pub enum ExecError {
@@ -266,6 +268,7 @@ pub trait Scope {
     fn get_var(&self, name: &str) -> ExecResult<Value>;
     fn declare_var(&mut self, name: String, val: Value) -> ExecResult<()>;
     fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()>;
+    fn as_scope_mut(&mut self) -> &mut dyn Scope;
 
     fn eval_expr(&self, expr: &Expr, io: &mut dyn Io) -> ExecResult<Value> {
         match expr {
@@ -322,20 +325,20 @@ pub trait Scope {
             },
             Stmt::If(expr, block) => {
                 if self.eval_expr(&expr.0, io)?.eval_truth(expr.1)? {
-                    self.eval_block(&block.0, io)?;
+                    BlockScope::new(self.as_scope_mut()).eval_block(&block.0, io)?;
                 }
                 Ok(())
             },
             Stmt::IfElse(expr, true_block, false_block) => {
                 if self.eval_expr(&expr.0, io)?.eval_truth(expr.1)? {
-                    self.eval_block(&true_block.0, io)
+                    BlockScope::new(self.as_scope_mut()).eval_block(&true_block.0, io)
                 } else {
-                    self.eval_block(&false_block.0, io)
+                    BlockScope::new(self.as_scope_mut()).eval_block(&false_block.0, io)
                 }
             },
             Stmt::While(expr, block) => {
                 while self.eval_expr(&expr.0, io)?.eval_truth(expr.1)? {
-                    self.eval_block(&block.0, io)?;
+                    BlockScope::new(self.as_scope_mut()).eval_block(&block.0, io)?;
                 }
                 Ok(())
             },
