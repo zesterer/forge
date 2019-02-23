@@ -13,6 +13,7 @@ pub use exec::{
     DefaultIo,
     Value,
     Scope,
+    Obj,
 };
 pub use error::{
     ForgeResult,
@@ -78,6 +79,25 @@ impl Engine {
             Ok(())
         };
         execute_fn().map_err(|e| ForgeError::InSrc(module.to_string(), Box::new(e)))
+    }
+
+    pub fn prompt(&mut self, input: &str) -> ForgeResult<Option<Value>> {
+        match parser::Parser::new(input)?.parse_stmts() {
+            Ok(stmts) => {
+                for stmt in &stmts {
+                    self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut()).map_err(|err|
+                        ForgeError::InSrc(input.to_string(), Box::new(err.into()))
+                    )?;
+                }
+                Ok(None)
+            },
+            Err(stmts_err) => Ok(Some(self.global_scope.eval_expr(
+                &parser::Parser::new(input)?.parse_expr().map_err(|err|
+                    ForgeError::InSrc(input.to_string(), Box::new(err.max(stmts_err).into()))
+                )?,
+                self.io.deref_mut(),
+            ).map_err(|err| ForgeError::InSrc(input.to_string(), Box::new(err.into())))?)),
+        }
     }
 }
 

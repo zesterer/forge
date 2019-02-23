@@ -1,30 +1,20 @@
-use forge::Engine;
+use forge::{
+    Engine,
+    Obj,
+};
+use rustyline::Editor;
 
 fn main() {
-    let result = Engine::default()
-        .execute(r#"
+    let mut engine = Engine::default();
 
-var c = 0;
-while c < 10 {
-    var test = "";
-    print "Iteration " + c + "!";
-    if c % 2 == 0 {
-        print "Even!";
-    } else {
-        print "Odd!";
+    println!("Welcome to the Forge prompt.");
+
+    let mut rl = Editor::<()>::new();
+    while let Ok(line) = rl.readline(">> ") {
+        rl.add_history_entry(line.as_ref());
+        let _ = engine.prompt(&line)
+            .map(|val| val.map(|val| println!("{}", val.get_display_text())))
+            .map_err(|err| print!("{}", err));
     }
-    c = c + 1;
-}
-print test;
-var x = 0;
-while true {
-    print x;
-    x = x + 1;
-}
-
-        "#)
-        .map_err(|e| print!("{}", e));
-
-    println!("Result = {:?}", result);
 }
 
