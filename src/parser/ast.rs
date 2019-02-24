@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use super::SrcRef;
 
 #[derive(Debug)]
@@ -12,7 +13,7 @@ pub enum Expr {
     LiteralNull,
     Ident(Node<String>),
     DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
-    Call(SrcRef, Box<Node<Expr>>, Vec<Node<Expr>>),
+    Call(SrcRef, Box<Node<Expr>>, Node<Vec<Node<Expr>>>),
     UnaryNot(SrcRef, Box<Node<Expr>>),
     UnaryNeg(SrcRef, Box<Node<Expr>>),
     UnaryInput(SrcRef, Box<Node<Expr>>),
@@ -30,19 +31,14 @@ pub enum Expr {
     BinaryAnd(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryOr(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryXor(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
 }
 
 #[derive(Debug)]
-pub struct Args; // TODO
+pub struct Args(pub Vec<Node<String>>);
 
 #[derive(Debug)]
 pub struct Block(pub Vec<Node<Stmt>>);
-
-#[derive(Debug)]
-pub struct Function {
-    args: Node<Args>,
-    block: Node<Block>,
-}
 
 #[derive(Debug)]
 pub enum Stmt {
@@ -53,6 +49,7 @@ pub enum Stmt {
     While(Node<Expr>, Node<Block>),
     Decl(Node<String>, Node<Expr>),
     Assign(Node<String>, Node<Expr>),
+    Return(Node<Expr>),
 }
 
 // Utility
@@ -84,7 +81,7 @@ impl Expr {
             Expr::Call(_, expr, params) => {
                 println!("{}Call", Spaces(depth));
                 expr.0.print_debug(depth + 1);
-                for param in params {
+                for param in &params.0 {
                     println!("{}Parameter", Spaces(depth + 1));
                     param.0.print_debug(depth + 1);
                 }
@@ -171,6 +168,11 @@ impl Expr {
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
+            Expr::Fn(_, rc) => {
+                println!("{}Function", Spaces(depth));
+                (rc.0).0.print_debug(depth + 1);
+                (rc.1).0.print_debug(depth + 1);
+            },
         }
     }
 }
@@ -210,6 +212,10 @@ impl Stmt {
                 println!("{}Assignment statement '{}'", Spaces(depth), ident.0);
                 expr.0.print_debug(depth + 1);
             },
+            Stmt::Return(expr) => {
+                println!("{}Return statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+            },
         }
     }
 }
@@ -219,6 +225,15 @@ impl Block {
         println!("{}Block", Spaces(depth));
         for stmt in &self.0 {
             stmt.0.print_debug(depth + 2);
+        }
+    }
+}
+
+impl Args {
+    pub fn print_debug(&self, depth: usize) {
+        println!("{}Args", Spaces(depth));
+        for arg in &self.0 {
+            println!("{}Argument '{}'", Spaces(depth + 2), arg.0);
         }
     }
 }

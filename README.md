@@ -8,12 +8,18 @@ In the future, you'll be able to use Forge as a general-purpose lightweight scri
 ## Example
 
 ```js
-var n = input "Enter a number: ";
+# A function to square numbers
+var square = |x| {
+	return x * x;
+};
 
-var c = 1;
-while c <= n {
-	print "square(" + c + ") = " + c * c;
-	c = c + 1;
+var n = input "How many squares? ";
+
+# Iterate and print squares
+var i = 1;
+while i <= n {
+	print "square(" + i + ") = " + square(i);
+	i = i + 1;
 }
 ```
 
@@ -52,6 +58,8 @@ $ forge my_script.fg
 - [x] If-else statements
 - [x] While statements
 - [x] Scoped variable declaration
+- [x] Function objects
+- [x] Function calling
 - [ ] Iterators
 - [ ] Increment, decrement, and similar operators
 - [ ] Functions
@@ -74,7 +82,7 @@ Forge has several distinct types:
 - Number *64-bit, floating-point*
 - String *unicode-compliant*
 - Boolean
-- Function *Currently only in Forge v1*
+- Function
 - List *Currently unimplemented*
 - Map *Currently unimplemented*
 - Object *Currently unimplemented*
@@ -96,6 +104,8 @@ I also aim to implement many a variety of optimisations throughout the compilati
 Forge aims to produce the most useful, informative and intelligence error messages it can.
 Errors can be emitted at compile-time or run-time. Below are a few examples.
 
+Parser errors:
+
 ```
 >> var x = 1; if x > 2 { print "Hello, world!" oops; }
 [ERROR] Parsing error at 1:45...
@@ -103,8 +113,10 @@ Errors can be emitted at compile-time or run-time. Below are a few examples.
    ...while parsing print statement...
    |1:45| var x = 1; if x > 2 { print "Hello, world!" oops; }
                                                       ^^^^
-   Expected ';' (did you forget to add one on the previous line?), found identifier 'oops'.
+   Expected ';', found identifier 'oops'.
 ```
+
+Runtime errors:
 
 ```
 >> var p = true; while p { print "On the next iteration, p will be null"; p = null; }
@@ -113,4 +125,15 @@ On the next iteration, p will be null
    |1:21| var p = true; while p { print "On the next iteration, p will be null"; p = null; }
                               ^
    Cannot determine the truthiness of value of type 'null'. Did you mean for this to be a bool?
+```
+
+Runtime errors that produce error messages that reference code written during the previous declaration of a function object:
+
+```
+[ERROR] Runtime error at 1:10...
+   |1:17| var say_hello = || { print "Hello, world!"; };
+                          ^^
+   |1:10| say_hello(1); # Wrong number of parameters
+                   ^^^
+   Tried to call a function with the wrong number of parameters. Expected 0, found 1.
 ```

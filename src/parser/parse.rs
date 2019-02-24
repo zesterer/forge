@@ -1,6 +1,7 @@
 use std::{
     slice,
     fmt,
+    rc::Rc,
 };
 use super::{
     ParseError,
@@ -13,6 +14,7 @@ use super::{
         Expr,
         Stmt,
         Block,
+        Args,
     },
 };
 
@@ -50,12 +52,14 @@ fn expected(expected: Item, found: Item, src_ref: SrcRef) -> ParseError {
 #[derive(Clone)]
 pub struct ParseCtx<'a> {
     tokens: slice::Iter<'a, Token>,
+    code: Rc<String>,
 }
 
 impl<'a> ParseCtx<'a> {
-    pub fn new(tokens: slice::Iter<'a, Token>) -> Self {
+    pub fn new(tokens: slice::Iter<'a, Token>, code: Rc<String>) -> Self {
         Self {
             tokens,
+            code,
         }
     }
 
@@ -100,6 +104,12 @@ impl<'a> ParseCtx<'a> {
                 *self = this;
                 return Ok((paren_expr, Some(err)));
             },
+            Token(Lexeme::Pipe, _r) => {
+                let mut this = self.clone();
+                let (fn_expr, err) = this.read_fn_expr()?;
+                *self = this;
+                return Ok((fn_expr, Some(err)));
+            },
             Token(l, r) => return Err(expected(Item::Primary, Item::Lexeme(l), r)),
         };
         self.advance();
@@ -125,17 +135,18 @@ impl<'a> ParseCtx<'a> {
     }
 
     fn read_call(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
-        let (mut expr, max_err) = self.read_access()?;
+        let (mut expr, mut max_err) = self.read_access()?;
 
         loop {
             let mut this = self.clone();
-            expr = match this.read_paramlist() {
-                Ok(Node(params, params_r)) => {
+            match this.read_params() {
+                Ok((Node(params, params_r), err)) => {
                     *self = this;
                     let r_union = params
                         .iter()
                         .fold(SrcRef::empty(), |r, p| p.1.union(&r));
-                    Node(Expr::Call(params_r, Box::new(expr), params), r_union)
+                    expr = Node(Expr::Call(params_r, Box::new(expr), Node(params, params_r)), r_union);
+                    max_err = err.max(max_err);
                 },
                 Err(err) => return Ok((expr, err.max(max_err))),
             };
@@ -344,8 +355,78 @@ impl<'a> ParseCtx<'a> {
         Ok((dot_r, self.read_ident()?))
     }
 
-    fn read_paramlist(&mut self) -> ParseResult<Node<Vec<Node<Expr>>>> {
-        Err(ParseError::UnexpectedChar('!'))
+    fn read_fn_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        const ELEMENT: &'static str = "function";
+
+        let r_start = match self.peek() {
+            Token(Lexeme::Pipe, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Pipe), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (args, max_err) = self.read_args().map_err(|err| err.while_parsing(ELEMENT))?;
+
+        let r_middle = match self.peek() {
+            Token(Lexeme::Pipe, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Pipe), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+        };
+
+        let (block, max_err) = self.read_block().map_err(|err| err.max(max_err).while_parsing(ELEMENT))?;
+
+        let r_union = args.1.union(&r_start).union(&r_middle).union(&block.1);
+        Ok((Node(Expr::Fn(self.code.clone(), Rc::new((Node(args.0, args.1.union(&r_start).union(&r_middle)), block))), r_union), max_err.while_parsing(ELEMENT)))
+    }
+
+    fn read_paramlist(&mut self) -> ParseResult<(Node<Vec<Node<Expr>>>, ParseError)> {
+        let mut params = vec![];
+        let mut r_total = SrcRef::empty();
+        let mut max_err = ParseError::Phoney;
+
+        loop {
+            let mut this = self.clone();
+            match this.read_expr() {
+                Ok((expr, err)) => {
+                    *self = this;
+                    r_total = r_total.union(&expr.1);
+                    params.push(expr);
+                    max_err = err.max(max_err);
+                },
+                Err(err) => {
+                    max_err = err.max(max_err);
+                    break;
+                },
+            }
+
+            match self.peek() {
+                Token(Lexeme::Comma, r) => {
+                    self.advance();
+                    r_total = r_total.union(&r);
+                },
+                Token(l, r) => {
+                    max_err = expected(Item::Lexeme(Lexeme::Comma), Item::Lexeme(l), r).max(max_err);
+                    break;
+                },
+            }
+        }
+
+        Ok((Node(params, r_total), max_err))
+    }
+
+    fn read_params(&mut self) -> ParseResult<(Node<Vec<Node<Expr>>>, ParseError)> {
+        let r_start = match self.peek() {
+            Token(Lexeme::LParen, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::LParen), Item::Lexeme(l), r)),
+        };
+
+        let (params, max_err) = self.read_paramlist()?;
+
+        match self.peek() {
+            Token(Lexeme::RParen, r) => {
+                self.advance();
+                let r_union = params.1.union(&r_start).union(&r);
+                Ok((Node(params.0, r_union), max_err))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RParen), Item::Lexeme(l), r).max(max_err)),
+        }
     }
 
     fn read_expr_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
@@ -378,6 +459,26 @@ impl<'a> ParseCtx<'a> {
                 self.advance();
                 let r_union = expr.1.union(&r_start).union(&r);
                 Ok((Node(Stmt::Print(expr), r_union), max_err))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+        }
+    }
+
+    fn read_return_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
+        const ELEMENT: &'static str = "return statement";
+
+        let r_start = match self.peek() {
+            Token(Lexeme::Return, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Return), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (expr, max_err) = self.read_expr().map_err(|err| err.while_parsing(ELEMENT))?;
+
+        match self.peek() {
+            Token(Lexeme::Semicolon, r) => {
+                self.advance();
+                let r_union = expr.1.union(&r_start).union(&r);
+                Ok((Node(Stmt::Return(expr), r_union), max_err))
             },
             Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
         }
@@ -546,6 +647,15 @@ impl<'a> ParseCtx<'a> {
             Err(err) => err.max(max_err),
         };
 
+        let mut this = self.clone();
+        let max_err = match this.read_return_stmt() {
+            Ok((stmt, err)) => {
+                *self = this;
+                return Ok((stmt, err.max(max_err)))
+            },
+            Err(err) => err.max(max_err),
+        };
+
         let next = self.peek();
         Err(expected(Item::Stmt, Item::Lexeme(next.0), next.1).max(max_err))
     }
@@ -589,6 +699,39 @@ impl<'a> ParseCtx<'a> {
             },
             Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RBrace), Item::Lexeme(l), r).max(max_err)),
         }
+    }
+
+    fn read_args(&mut self) -> ParseResult<(Node<Args>, ParseError)> {
+        let mut args = vec![];
+        let mut r_total = SrcRef::empty();
+        let mut max_err = ParseError::Phoney;
+
+        loop {
+            match self.peek() {
+                Token(Lexeme::Ident(s), r) => {
+                    self.advance();
+                    r_total = r_total.union(&r);
+                    args.push(Node(s.clone(), r));
+                },
+                Token(l, r) => {
+                    max_err = expected(Item::Ident, Item::Lexeme(l), r).max(max_err);
+                    break;
+                },
+            }
+
+            match self.peek() {
+                Token(Lexeme::Comma, r) => {
+                    self.advance();
+                    r_total = r_total.union(&r);
+                },
+                Token(l, r) => {
+                    max_err = expected(Item::Lexeme(Lexeme::Comma), Item::Lexeme(l), r).max(max_err);
+                    break;
+                },
+            }
+        }
+
+        Ok((Node(Args(args), r_total), max_err))
     }
 
     pub fn read_expr_full(&mut self) -> ParseResult<Expr> {

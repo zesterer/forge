@@ -6,7 +6,8 @@ use crate::parser::{
     SrcRef,
     ast::{
         Node,
-        Function,
+        Args,
+        Block,
     },
 };
 use super::{
@@ -22,7 +23,7 @@ pub enum Value {
     Number(f64),
     String(String),
     Boolean(bool),
-    Fn(Rc<Node<Function>>),
+    Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
     Custom(Rc<dyn Obj>),
     Null,
 }
@@ -33,7 +34,7 @@ impl PartialEq for Value {
             (Value::Number(x), Value::Number(y)) => x.eq(y),
             (Value::String(x), Value::String(y)) => x.eq(y),
             (Value::Boolean(x), Value::Boolean(y)) => x.eq(y),
-            (Value::Fn(x), Value::Fn(y)) => Rc::ptr_eq(x, y),
+            (Value::Fn(_, x), Value::Fn(_, y)) => Rc::ptr_eq(x, y),
             (Value::Null, Value::Null) => true,
             _ => false,
         }
@@ -73,7 +74,7 @@ impl Obj for Value {
             Value::Number(_) => String::from("number"),
             Value::String(_) => String::from("string"),
             Value::Boolean(_) => String::from("bool"),
-            Value::Fn(_) => String::from("function"),
+            Value::Fn(_, _) => String::from("function"),
             Value::Custom(c) => c.get_type_name(),
             Value::Null => String::from("null"),
         }
@@ -84,7 +85,7 @@ impl Obj for Value {
             Value::Number(x) => format!("{}", x),
             Value::String(s) => s.clone(),
             Value::Boolean(b) => format!("{}", b),
-            Value::Fn(_) => String::from("<function>"),
+            Value::Fn(_, _) => String::from("<function>"),
             Value::Custom(c) => c.get_display_text()?,
             Value::Null => String::from("<null>"),
         })
@@ -240,7 +241,7 @@ impl Obj for Value {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x == *y)),
-            (Value::Fn(x), Value::Fn(y)) => Ok(Value::Boolean(Rc::ptr_eq(&x, &y))),
+            (Value::Fn(_, x), Value::Fn(_, y)) => Ok(Value::Boolean(Rc::ptr_eq(&x, &y))),
             (Value::Null, Value::Null) => Ok(Value::Boolean(true)),
             _ => Ok(Value::Boolean(false)),
         }
@@ -251,7 +252,7 @@ impl Obj for Value {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x != *y)),
-            (Value::Fn(x), Value::Fn(y)) => Ok(Value::Boolean(!Rc::ptr_eq(&x, &y))),
+            (Value::Fn(_, x), Value::Fn(_, y)) => Ok(Value::Boolean(!Rc::ptr_eq(&x, &y))),
             (Value::Null, Value::Null) => Ok(Value::Boolean(false)),
             _ => Ok(Value::Boolean(true)),
         }

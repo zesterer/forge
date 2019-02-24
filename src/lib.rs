@@ -14,14 +14,17 @@ pub use exec::{
     Value,
     Scope,
     Obj,
+    GlobalScope,
 };
 pub use error::{
     ForgeResult,
     ForgeError,
 };
 
-use std::ops::DerefMut;
-use hashbrown::HashMap;
+use std::{
+    ops::DerefMut,
+    rc::Rc,
+};
 
 pub struct EngineBuilder {
     io: Box<dyn Io>,
@@ -53,16 +56,16 @@ impl Engine {
         }
     }
 
-    pub fn eval(&mut self, expr: &str) -> ForgeResult<Value> {
+    pub fn eval(&mut self, expr_str: &str) -> ForgeResult<Value> {
         let mut eval_fn = || {
-            let expr = parser::Parser::new(expr)?.parse_expr()?;
+            let expr = parser::Parser::new(expr_str)?.parse_expr()?;
 
             // TODO: Remove this
             //expr.print_debug(0);
 
-            Ok(self.global_scope.eval_expr(&expr, self.io.deref_mut())?)
+            Ok(self.global_scope.eval_expr(&expr, self.io.deref_mut(), &Rc::new(expr_str.to_string()))?)
         };
-        eval_fn().map_err(|e| ForgeError::InSrc(expr.to_string(), Box::new(e)))
+        eval_fn()
     }
 
     pub fn exec(&mut self, module: &str) -> ForgeResult<()> {
@@ -71,21 +74,19 @@ impl Engine {
 
             for stmt in &stmts {
                 // stmt.0.print_debug(0); // TODO: Remove this
-                self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut())?;
+                self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut(), &Rc::new(module.to_string()))?;
             }
 
             Ok(())
         };
-        exec_fn().map_err(|e| ForgeError::InSrc(module.to_string(), Box::new(e)))
+        exec_fn()
     }
 
     pub fn prompt(&mut self, input: &str) -> ForgeResult<Option<Value>> {
         match parser::Parser::new(input)?.parse_stmts() {
             Ok(stmts) => {
                 for stmt in &stmts {
-                    self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut()).map_err(|err|
-                        ForgeError::InSrc(input.to_string(), Box::new(err.into()))
-                    )?;
+                    self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut(), &Rc::new(input.to_string()))?;
                 }
                 Ok(None)
             },
@@ -94,7 +95,8 @@ impl Engine {
                     ForgeError::InSrc(input.to_string(), Box::new(err.max(stmts_err).into()))
                 )?,
                 self.io.deref_mut(),
-            ).map_err(|err| ForgeError::InSrc(input.to_string(), Box::new(err.into())))?)),
+                &Rc::new(input.to_string()),
+            )?)),
         }
     }
 }
@@ -102,44 +104,5 @@ impl Engine {
 impl Default for Engine {
     fn default() -> Self {
         Engine::build().finish()
-    }
-}
-
-struct GlobalScope {
-    vars: HashMap<String, Value>,
-}
-
-impl GlobalScope {
-    pub fn empty() -> Self {
-        Self {
-            vars: HashMap::new(),
-        }
-    }
-}
-
-impl Scope for GlobalScope {
-    fn get_var(&self, name: &str) -> ExecResult<Value> {
-        self.vars
-            .get(name)
-            .cloned()
-            .ok_or(ExecError::NoSuchItem(name.to_string()))
-    }
-
-    fn declare_var(&mut self, name: String, val: Value) -> ExecResult<()> {
-        self.vars
-            .insert(name.clone(), val)
-            .and(Some(Err(ExecError::ItemExists(name))))
-            .unwrap_or(Ok(()))
-    }
-
-    fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()> {
-        self.vars
-            .get_mut(name)
-            .map(|v| *v = val)
-            .ok_or(ExecError::NoSuchItem(name.to_string()))
-    }
-
-    fn as_scope_mut(&mut self) -> &mut dyn Scope {
-        self
     }
 }
