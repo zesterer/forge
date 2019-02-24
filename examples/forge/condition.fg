@@ -1,0 +1,16 @@
+var x = true;
+var y = true;
+var z = true;
+
+while x or y or z {
+    while !(y xor z) {
+	    if !z {
+		    x = !x;
+			print "x swapped, now " + x;
+		}
+		y = !y;
+		print "y swapped, now " + y;
+	}
+	z = !z;
+	print "z swapped, now " + z;
+}

@@ -67,8 +67,8 @@ impl Engine {
         eval_fn().map_err(|e| ForgeError::InSrc(expr.to_string(), Box::new(e)))
     }
 
-    pub fn execute(&mut self, module: &str) -> ForgeResult<()> {
-        let mut execute_fn = || {
+    pub fn exec(&mut self, module: &str) -> ForgeResult<()> {
+        let mut exec_fn = || {
             let stmts = parser::Parser::new(module)?.parse_stmts()?;
 
             for stmt in &stmts {
@@ -78,7 +78,7 @@ impl Engine {
 
             Ok(())
         };
-        execute_fn().map_err(|e| ForgeError::InSrc(module.to_string(), Box::new(e)))
+        exec_fn().map_err(|e| ForgeError::InSrc(module.to_string(), Box::new(e)))
     }
 
     pub fn prompt(&mut self, input: &str) -> ForgeResult<Option<Value>> {

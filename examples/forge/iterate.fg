@@ -1,0 +1,5 @@
+var c = 0;
+while c < 10 {
+    print "Iteration " + c + "!";
+    c = c + 1;
+}

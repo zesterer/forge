@@ -33,6 +33,23 @@ while n < 10 {
 - Easy to build into an existing codebase
 - Python-like REPL prompt
 
+## Usage
+
+Using Forge is similar in principle to using Python.
+Once compiled, running the shell or executing scripts with the interpreter is trivial.
+
+To access the REPL shell, run:
+
+```
+$ forge
+```
+
+To execute a script, run:
+
+```
+$ forge my_script.fg
+```
+
 ## Design
 
 ### Types
