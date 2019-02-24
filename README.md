@@ -3,7 +3,7 @@
 Forge is a dynamically-typed language written in Rust. It is inspired by JavaScript, Rust, Python and [Rhai](https://github.com/jonathandturner/rhai).
 In the future, you'll be able to use Forge as a general-purpose lightweight scripting language in your applications.
 
-[You can try out Forge v1 in your browser here!](https://forge.jsbarretto.com)
+[**You can try out Forge in your browser here!**](https://forge.jsbarretto.com)
 
 ## Example
 
