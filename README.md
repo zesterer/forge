@@ -7,7 +7,7 @@ In the future, you'll be able to use Forge as a general-purpose lightweight scri
 
 ## Example
 
-```js
+```py
 # A function to square numbers
 var square = |x| {
 	return x * x;
@@ -37,6 +37,7 @@ while i <= n {
 
 Using Forge is similar in principle to using Python.
 Once compiled, running the shell or executing scripts with the interpreter is trivial.
+You'll need to compile the `cli/` crate to gain access to the interpeter binary.
 
 To access the REPL shell, run:
 
@@ -62,7 +63,6 @@ $ forge my_script.fg
 - [x] Function calling
 - [ ] Iterators
 - [ ] Increment, decrement, and similar operators
-- [ ] Functions
 - [ ] Lvalues vs rvalues
 - [ ] Objects
 - [ ] Rugged Rust <-> Forge FFI

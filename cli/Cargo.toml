@@ -1,8 +1,9 @@
 [package]
-name = "forge"
+name = "forge-cli"
 version = "0.1.0"
 authors = ["Joshua Barretto <joshua.s.barretto@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-hashbrown = "0.1"
+rustyline = "3.0"
+forge = { path = "../" }
