@@ -15,6 +15,7 @@ pub enum Expr {
     Call(SrcRef, Box<Node<Expr>>, Vec<Node<Expr>>),
     UnaryNot(SrcRef, Box<Node<Expr>>),
     UnaryNeg(SrcRef, Box<Node<Expr>>),
+    UnaryInput(SrcRef, Box<Node<Expr>>),
     BinaryMul(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryDiv(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryMod(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
@@ -94,6 +95,10 @@ impl Expr {
             },
             Expr::UnaryNeg(_, expr) => {
                 println!("{}Unary neg", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::UnaryInput(_, expr) => {
+                println!("{}Unary input", Spaces(depth));
                 expr.0.print_debug(depth + 1);
             },
             Expr::BinaryMul(_, left, right) => {

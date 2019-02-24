@@ -4,7 +4,10 @@ mod value;
 // Reexports
 pub use self::value::Value;
 
-use std::fmt;
+use std::{
+    fmt,
+    io::{self, prelude::*},
+};
 use crate::{
     output,
     parser::{
@@ -20,6 +23,8 @@ use block_scope::BlockScope;
 
 #[derive(Debug)]
 pub enum ExecError {
+    CouldNotParse(String),
+    Io(io::Error),
     Truthiness(SrcRef, String),
     UnaryOp {
         op: &'static str,
@@ -41,6 +46,16 @@ impl ExecError {
     pub fn fmt_nice_located(&self, f: &mut fmt::Formatter, src: Option<&str>, depth: usize, r: SrcRef) -> fmt::Result {
         writeln!(f, "[ERROR] Runtime error at {}...", r.start())?;
         match self {
+            ExecError::CouldNotParse(s) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Could not parse '{}' into a value.", output::Repeat(' ', (depth + 1) * 3), s))
+            },
+            ExecError::Io(io) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}I/O error: {}.", output::Repeat(' ', (depth + 1) * 3), io))
+            },
             ExecError::NoSuchItem(item) => {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
@@ -78,6 +93,8 @@ impl ExecError {
                     .and_then(|_| writeln!(f, "{}Cannot apply binary operator '{}' to values of types '{}' and '{}'.", output::Repeat(' ', (depth + 1) * 3), op, left_type, right_type))
             },
             ExecError::At(r, err) => err.fmt_nice_located(f, src, depth, *r),
+            ExecError::Io(_) => Ok(()),
+            ExecError::CouldNotParse(_) => Ok(()),
             ExecError::NoSuchItem(_) => Ok(()),
             ExecError::ItemExists(_) => Ok(()),
         }
@@ -87,13 +104,25 @@ impl ExecError {
 pub type ExecResult<T> = Result<T, ExecError>;
 
 pub trait Io {
-    fn print(&self, s: String) -> ExecResult<()>;
+    fn input(&mut self, s: String) -> ExecResult<String>;
+    fn print(&mut self, s: String) -> ExecResult<()>;
 }
 
 pub struct DefaultIo;
 
 impl Io for DefaultIo {
-    fn print(&self, s: String) -> ExecResult<()> {
+    fn input(&mut self, s: String) -> ExecResult<String> {
+        print!("{}", s);
+        io::stdout().flush()
+            .map_err(|err| ExecError::Io(err))?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)
+            .map_err(|err| ExecError::Io(err))?;
+        Ok(input)
+    }
+
+    fn print(&mut self, s: String) -> ExecResult<()> {
         println!("{}", s);
         Ok(())
     }
@@ -285,6 +314,16 @@ pub trait Scope {
                 self.eval_expr(&expr.0, io)?.eval_not(UnaryOpRef { op: *r, expr: expr.1 }),
             Expr::UnaryNeg(r, expr) =>
                 self.eval_expr(&expr.0, io)?.eval_neg(UnaryOpRef { op: *r, expr: expr.1 }),
+            Expr::UnaryInput(r, expr) => {
+                let text = self.eval_expr(&expr.0, io)?.get_display_text();
+                let input = io.input(text).map_err(|err| ExecError::At(expr.1, Box::new(err)))?;
+                input
+                    .trim()
+                    .parse().map(|n| Value::Number(n))
+                    .or_else(|_| input.parse().map(|n| Value::Boolean(n)))
+                    .or_else(|_| input.parse().map(|n| Value::String(n)))
+                    .map_err(|_| ExecError::At(*r, Box::new(ExecError::CouldNotParse(input))))
+            },
             Expr::BinaryMul(r, left, right) =>
                 self.eval_expr(&left.0, io)?.eval_mul(&self.eval_expr(&right.0, io)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryDiv(r, left, right) =>

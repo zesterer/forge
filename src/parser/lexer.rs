@@ -43,7 +43,7 @@ pub enum Lexeme {
     Fn,
     This,
     Var,
-    Print,
+    Print, Input,
 
     // Misc
     Reserved,
@@ -104,6 +104,7 @@ impl fmt::Display for Lexeme {
             Lexeme::This => write!(f, "this"),
             Lexeme::Var => write!(f, "var"),
             Lexeme::Print => write!(f, "print"),
+            Lexeme::Input => write!(f, "input"),
 
             Lexeme::Reserved => write!(f, "<reserved>"),
             Lexeme::Eof => write!(f, "EOF"),
@@ -292,6 +293,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     "this" => Lexeme::This,
                     "var" => Lexeme::Var,
                     "print" => Lexeme::Print,
+                    "input" => Lexeme::Input,
                     "true" => Lexeme::True,
                     "false" => Lexeme::False,
                     "null" => Lexeme::Null,

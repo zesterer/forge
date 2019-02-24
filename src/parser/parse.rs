@@ -156,6 +156,12 @@ impl<'a> ParseCtx<'a> {
                 let r_union = r.union(&operand.1);
                 (Node(Expr::UnaryNeg(r, Box::new(operand)), r_union), err)
             },
+            Token(Lexeme::Input, r) => {
+                self.advance();
+                let (operand, err) = self.read_unary()?;
+                let r_union = r.union(&operand.1);
+                (Node(Expr::UnaryInput(r, Box::new(operand)), r_union), err)
+            },
             _ => self.read_call()?,
         })
     }
