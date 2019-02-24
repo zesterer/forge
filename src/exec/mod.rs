@@ -318,9 +318,9 @@ pub trait Scope {
                 let text = self.eval_expr(&expr.0, io)?.get_display_text();
                 let input = io.input(text).map_err(|err| ExecError::At(expr.1, Box::new(err)))?;
                 input
-                    .trim()
-                    .parse().map(|n| Value::Number(n))
-                    .or_else(|_| input.parse().map(|n| Value::Boolean(n)))
+                    .trim().parse().map(|n| Value::Number(n))
+                    .or_else(|_| input.trim().parse().map(|n| Value::Boolean(n)))
+                    .or_else(|_| if input.trim() == "null" { Ok(Value::Null) } else { Err(()) })
                     .or_else(|_| input.parse().map(|n| Value::String(n)))
                     .map_err(|_| ExecError::At(*r, Box::new(ExecError::CouldNotParse(input))))
             },
