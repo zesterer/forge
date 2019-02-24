@@ -11,6 +11,7 @@ pub enum SrcLoc {
     At {
         line: usize,
         col: usize,
+        start_of_line: bool,
     },
     End,
     Nowhere,
@@ -21,12 +22,18 @@ impl SrcLoc {
         SrcLoc::At {
             line: 1,
             col: 1,
+            start_of_line: true,
         }
     }
 
-    pub fn next_col(mut self) -> Self {
+    pub fn next_col(mut self, no_longer_start: bool) -> Self {
         match &mut self {
-            SrcLoc::At { col, .. } => *col += 1,
+            SrcLoc::At { col, start_of_line, .. } => {
+                *col += 1;
+                if no_longer_start {
+                    *start_of_line = false;
+                }
+            },
             SrcLoc::End => {},
             SrcLoc::Nowhere => {},
         }
@@ -35,9 +42,10 @@ impl SrcLoc {
 
     pub fn next_line(mut self) -> Self {
         match &mut self {
-            SrcLoc::At { line, col } => {
+            SrcLoc::At { line, col, start_of_line } => {
                 *line += 1;
                 *col = 1;
+                *start_of_line = true;
             },
             SrcLoc::End => {},
             SrcLoc::Nowhere => {},
@@ -51,9 +59,17 @@ impl SrcLoc {
 
     pub fn pos(&self) -> Option<(usize, usize)> {
         match self {
-            SrcLoc::At { line, col } => Some((*line, *col)),
+            SrcLoc::At { line, col, .. } => Some((*line, *col)),
             SrcLoc::End => None,
             SrcLoc::Nowhere => None,
+        }
+    }
+
+    pub fn start_of_line(&self) -> bool {
+        match self {
+            SrcLoc::At { start_of_line, .. } => *start_of_line,
+            SrcLoc::End => false,
+            SrcLoc::Nowhere => false,
         }
     }
 }
@@ -62,8 +78,8 @@ impl PartialOrd for SrcLoc {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         match (self, rhs) {
             (
-                SrcLoc::At { line: l0, col: c0 },
-                SrcLoc::At { line: l1, col: c1 },
+                SrcLoc::At { line: l0, col: c0, .. },
+                SrcLoc::At { line: l1, col: c1, .. },
             ) => if l0 == l1 {
                 Some(c0.cmp(c1))
             } else {
@@ -80,7 +96,7 @@ impl PartialOrd for SrcLoc {
 impl fmt::Display for SrcLoc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            SrcLoc::At { line, col } => write!(f, "{}:{}", line, col),
+            SrcLoc::At { line, col, .. } => write!(f, "{}:{}", line, col),
             SrcLoc::End => write!(f, "end of input"),
             SrcLoc::Nowhere => write!(f, "(none)"),
         }
@@ -100,14 +116,14 @@ impl SrcRef {
     pub fn single(start: SrcLoc) -> Self {
         SrcRef::Range {
             start,
-            limit: start.next_col(),
+            limit: start.next_col(true),
         }
     }
 
     pub fn double(start: SrcLoc) -> Self {
         SrcRef::Range {
             start,
-            limit: start.next_col().next_col(),
+            limit: start.next_col(true).next_col(true),
         }
     }
 
@@ -162,8 +178,8 @@ impl SrcRef {
         match self {
             SrcRef::Range { start, limit } => match (start, limit) {
                 (
-                    SrcLoc::At { line: l0, col: c0 },
-                    SrcLoc::At { line: l1, col: c1 },
+                    SrcLoc::At { line: l0, col: c0, .. },
+                    SrcLoc::At { line: l1, col: c1, .. },
                 ) => if l0 == l1 {
                     Some(c1 - c0)
                 } else {

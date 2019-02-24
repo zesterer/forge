@@ -147,9 +147,10 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
     loop {
         let c = chars.clone().next().unwrap_or('\0');
         let mut incr = 1;
+        let mut was_whitespace = false;
         match state {
             State::Default => match c {
-                ' ' | '\r' | '\t' | '\n' => {},
+                ' ' | '\r' | '\t' | '\n' => was_whitespace = true,
                 '(' => tokens.push(Token(Lexeme::LParen, SrcRef::single(loc))),
                 ')' => tokens.push(Token(Lexeme::RParen, SrcRef::single(loc))),
                 '{' => tokens.push(Token(Lexeme::LBrace, SrcRef::single(loc))),
@@ -246,7 +247,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
             },
             State::String => match c {
                 '"' => /*"*/ {
-                    tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc.next_col())));
+                    tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc.next_col(true))));
                     state = State::Default;
                 },
                 '\0' => {
@@ -314,7 +315,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 loc = loc.next_line();
                 chars.next();
             } else {
-                loc = loc.next_col();
+                loc = loc.next_col(!was_whitespace);
                 chars.next();
             }
         }

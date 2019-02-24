@@ -30,7 +30,6 @@ impl fmt::Display for Item {
         match self {
             Item::Lexeme(lexeme) => match lexeme {
                 Lexeme::Ident(ident) => write!(f, "identifier '{}'", ident),
-                Lexeme::Semicolon => write!(f, "'{}' (did you forget to add one on the previous line?)", Lexeme::Semicolon),
                 lexeme => write!(f, "'{}'", lexeme),
             },
             Item::Ident => write!(f, "identifier"),

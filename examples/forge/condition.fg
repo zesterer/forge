@@ -3,7 +3,7 @@ var y = true;
 var z = true;
 
 while x or y or z {
-    while !(y xor z) {
+	while !(y xor z) {
 	    if !z {
 		    x = !x;
 			print "x swapped, now " + x;
