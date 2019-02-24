@@ -2,7 +2,7 @@ use forge::{Engine, Value};
 
 #[test]
 fn literals() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#"12.34"#).unwrap() == 12.34);
     assert!(engine.eval(r#""foo""#).unwrap() == "foo");
@@ -15,7 +15,7 @@ fn literals() {
 
 #[test]
 fn comments() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#"# A comment"#).unwrap() == Value::Null);
     assert!(engine.eval(r#"147.5 # Another # comment!"#).unwrap() == 147.5);
@@ -23,7 +23,7 @@ fn comments() {
 
 #[test]
 fn equivalence() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#"12.34 == 12.34"#).unwrap() == true);
     assert!(engine.eval(r#""foo" == "foo""#).unwrap() == true);
@@ -36,7 +36,7 @@ fn equivalence() {
 
 #[test]
 fn stringify() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#""12.34" == "" + 12.34"#).unwrap() == true);
     assert!(engine.eval(r#""true" == "" + true"#).unwrap() == true);
@@ -45,7 +45,7 @@ fn stringify() {
 
 #[test]
 fn arithmetic() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#"-5"#).unwrap() == -5.0);
 
@@ -68,7 +68,7 @@ fn arithmetic() {
 
 #[test]
 fn order_of_operations() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#"5 * 2 + 1"#).unwrap() == 11.0);
     assert!(engine.eval(r#"5 * 2 - 1"#).unwrap() ==  9.0);
@@ -86,7 +86,7 @@ fn order_of_operations() {
 
 #[test]
 fn logical_operations() {
-    let mut engine = forge::Engine::default();
+    let mut engine = Engine::default();
 
     assert!(engine.eval(r#"true and true"#).unwrap() == true);
     assert!(engine.eval(r#"true and false"#).unwrap() == false);

@@ -23,6 +23,7 @@ use block_scope::BlockScope;
 
 #[derive(Debug)]
 pub enum ExecError {
+    CannotDisplay(String),
     CouldNotParse(String),
     Io(io::Error),
     Truthiness(SrcRef, String),
@@ -46,6 +47,11 @@ impl ExecError {
     pub fn fmt_nice_located(&self, f: &mut fmt::Formatter, src: Option<&str>, depth: usize, r: SrcRef) -> fmt::Result {
         writeln!(f, "[ERROR] Runtime error at {}...", r.start())?;
         match self {
+            ExecError::CannotDisplay(s) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Cannot display value of type '{}'.", output::Repeat(' ', (depth + 1) * 3), s))
+            },
             ExecError::CouldNotParse(s) => {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
@@ -94,6 +100,7 @@ impl ExecError {
             },
             ExecError::At(r, err) => err.fmt_nice_located(f, src, depth, *r),
             ExecError::Io(_) => Ok(()),
+            ExecError::CannotDisplay(_) => Ok(()),
             ExecError::CouldNotParse(_) => Ok(()),
             ExecError::NoSuchItem(_) => Ok(()),
             ExecError::ItemExists(_) => Ok(()),
@@ -119,7 +126,7 @@ impl Io for DefaultIo {
         let mut input = String::new();
         io::stdin().read_line(&mut input)
             .map_err(|err| ExecError::Io(err))?;
-        Ok(input)
+        Ok(input.replace('\n', ""))
     }
 
     fn print(&mut self, s: String) -> ExecResult<()> {
@@ -141,10 +148,12 @@ pub struct BinaryOpRef {
     right: SrcRef,
 }
 
-pub trait Obj: Sized {
+pub trait Obj: fmt::Debug {
     fn get_type_name(&self) -> String;
 
-    fn get_display_text(&self) -> String;
+    fn get_display_text(&self) -> ExecResult<String> {
+        Err(ExecError::CannotDisplay(self.get_type_name()))
+    }
 
     fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
         Err(ExecError::Truthiness(r, self.get_type_name()))
@@ -315,8 +324,10 @@ pub trait Scope {
             Expr::UnaryNeg(r, expr) =>
                 self.eval_expr(&expr.0, io)?.eval_neg(UnaryOpRef { op: *r, expr: expr.1 }),
             Expr::UnaryInput(r, expr) => {
-                let text = self.eval_expr(&expr.0, io)?.get_display_text();
-                let input = io.input(text).map_err(|err| ExecError::At(expr.1, Box::new(err)))?;
+                let text = self.eval_expr(&expr.0, io)?.get_display_text()
+                    .map_err(|err| ExecError::At(expr.1, Box::new(err)))?;
+                let input = io.input(text)
+                    .map_err(|err| ExecError::At(r.union(&expr.1), Box::new(err)))?;
                 input
                     .trim().parse().map(|n| Value::Number(n))
                     .or_else(|_| input.trim().parse().map(|n| Value::Boolean(n)))
@@ -359,7 +370,8 @@ pub trait Scope {
         match stmt {
             Stmt::Expr(expr) => { self.eval_expr(&expr.0, io)?; Ok(()) },
             Stmt::Print(expr) => {
-                let text = self.eval_expr(&expr.0, io)?.get_display_text();
+                let text = self.eval_expr(&expr.0, io)?.get_display_text()
+                    .map_err(|err| ExecError::At(expr.1, Box::new(err)))?;
                 io.print(text)
             },
             Stmt::If(expr, block) => {

@@ -50,13 +50,14 @@ $ forge my_script.fg
 
 Forge has several distinct types:
 
-- Numbers *64-bit, floating-point*
-- Strings *unicode-compliant*
-- Booleans
-- Functions *Currently only in Forge v1*
-- Lists *Currently unimplemented*
-- Maps *Currently unimplemented*
-- Objects *Currently unimplemented*
+- Number *64-bit, floating-point*
+- String *unicode-compliant*
+- Boolean
+- Function *Currently only in Forge v1*
+- List *Currently unimplemented*
+- Map *Currently unimplemented*
+- Object *Currently unimplemented*
+- Custom *Used to call to and from Rust*
 - Null
 
 ### Interpreter

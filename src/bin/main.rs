@@ -19,7 +19,9 @@ fn prompt() {
         rl.add_history_entry(line.as_ref());
 
         let _ = engine.prompt(&line)
-            .map(|val| val.map(|val| println!("{}", val.get_display_text())))
+            .map(|val| val.map(|val| {
+                println!("{}", val.get_display_text().unwrap_or("<value cannot be displayed>".to_string()))
+            }))
             .map_err(|err| print!("{}", err));
     }
 }

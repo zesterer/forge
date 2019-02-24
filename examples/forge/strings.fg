@@ -1,0 +1,16 @@
+var shopping_list = "";
+
+var running = true;
+while running {
+	var item = input "Enter item, or type 'exit': ";
+	if item == "exit" {
+		running = false;
+	} else {
+		if shopping_list != "" {
+			shopping_list = shopping_list + ", ";
+		}
+		shopping_list = shopping_list + item;
+	}
+}
+
+print "The shopping list is: " + shopping_list;

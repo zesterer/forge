@@ -23,6 +23,7 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Fn(Rc<Node<Function>>),
+    Custom(Rc<dyn Obj>),
     Null,
 }
 
@@ -73,18 +74,20 @@ impl Obj for Value {
             Value::String(_) => String::from("string"),
             Value::Boolean(_) => String::from("bool"),
             Value::Fn(_) => String::from("function"),
+            Value::Custom(c) => c.get_type_name(),
             Value::Null => String::from("null"),
         }
     }
 
-    fn get_display_text(&self) -> String {
-        match self {
+    fn get_display_text(&self) -> ExecResult<String> {
+        Ok(match self {
             Value::Number(x) => format!("{}", x),
             Value::String(s) => s.clone(),
             Value::Boolean(b) => format!("{}", b),
             Value::Fn(_) => String::from("<function>"),
+            Value::Custom(c) => c.get_display_text()?,
             Value::Null => String::from("<null>"),
-        }
+        })
     }
 
     fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
