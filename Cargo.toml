@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 rustyline = "3.0.0"
+hashbrown = "0.1"

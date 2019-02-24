@@ -20,10 +20,8 @@ pub use error::{
     ForgeError,
 };
 
-use std::{
-    ops::DerefMut,
-    collections::HashMap,
-};
+use std::ops::DerefMut;
+use hashbrown::HashMap;
 
 pub struct EngineBuilder {
     io: Box<dyn Io>,

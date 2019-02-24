@@ -44,6 +44,27 @@ To execute a script, run:
 $ forge my_script.fg
 ```
 
+## Roadmap
+
+- [x] Numbers, strings and booleans
+- [x] Arithmetic operators
+- [x] Logical operators
+- [x] If-else statements
+- [x] While statements
+- [x] Scoped variable declaration
+- [ ] Iterators
+- [ ] Increment, decrement, and similar operators
+- [ ] Functions
+- [ ] Lvalues vs rvalues
+- [ ] Objects
+- [ ] Rugged Rust <-> Forge FFI
+- [ ] Modules as objects
+- [ ] Scoped constants
+- [ ] AST optimisation
+- [ ] Bytecode generation
+- [ ] Bytecode interpretation
+- [ ] LLVM-driven recompilation
+
 ## Design
 
 ### Types
@@ -59,6 +80,10 @@ Forge has several distinct types:
 - Object *Currently unimplemented*
 - Custom *Used to call to and from Rust*
 - Null
+
+### Things to do
+
+- Investigate design features that would make the dynamic type system easier to optimise
 
 ### Interpreter
 

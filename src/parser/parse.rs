@@ -16,7 +16,7 @@ use super::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Item {
     Lexeme(Lexeme),
     Ident,

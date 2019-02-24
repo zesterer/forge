@@ -3,3 +3,7 @@ while c < 10 {
     print "Iteration " + c + "!";
     c = c + 1;
 }
+
+# for i in 0:10 {
+# 	print "Iteration" + i + "!";
+# }

@@ -1,6 +1,7 @@
 use std::fmt;
 use super::{
     Item,
+    Lexeme,
     SrcRef,
 };
 use crate::output;
@@ -76,11 +77,13 @@ impl ParseError {
             ParseError::Expected(expected, found) => {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
-                    .and_then(|_| writeln!(f, "{}Expected {}, found {}.{}", indent, expected, found, if r.start().start_of_line() {
-                        " Did you forget to add a semicolon on the previous line?"
-                    } else {
-                        ""
-                    }))
+                    .and_then(|_| writeln!(f, "{}Expected {}, found {}.{}", indent, expected, found,
+                        if r.start().start_of_line() && *expected == Item::Lexeme(Lexeme::Semicolon) {
+                            " Did you forget to add a semicolon on the previous line?"
+                        } else {
+                            ""
+                        },
+                    ))
             },
             ParseError::ReservedKeyword(keyword) => {
                 Ok(())

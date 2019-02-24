@@ -14,6 +14,7 @@ pub enum Lexeme {
     LBrack, RBrack,
     Comma,
     Dot,
+    Colon,
     Semicolon,
     Pipe,
 
@@ -44,6 +45,7 @@ pub enum Lexeme {
     This,
     Var,
     Print, Input,
+    Clone,
 
     // Misc
     Reserved,
@@ -61,6 +63,7 @@ impl fmt::Display for Lexeme {
             Lexeme::RBrack => write!(f, "]"),
             Lexeme::Comma => write!(f, ","),
             Lexeme::Dot => write!(f, "."),
+            Lexeme::Colon => write!(f, ":"),
             Lexeme::Semicolon => write!(f, ";"),
             Lexeme::Pipe => write!(f, "|"),
 
@@ -105,6 +108,7 @@ impl fmt::Display for Lexeme {
             Lexeme::Var => write!(f, "var"),
             Lexeme::Print => write!(f, "print"),
             Lexeme::Input => write!(f, "input"),
+            Lexeme::Clone => write!(f, "clone"),
 
             Lexeme::Reserved => write!(f, "<reserved>"),
             Lexeme::Eof => write!(f, "EOF"),
@@ -161,6 +165,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 ',' => tokens.push(Token(Lexeme::Comma, SrcRef::single(loc))),
                 '.' => tokens.push(Token(Lexeme::Dot, SrcRef::single(loc))),
                 '|' => tokens.push(Token(Lexeme::Pipe, SrcRef::single(loc))),
+                ':' => tokens.push(Token(Lexeme::Colon, SrcRef::single(loc))),
                 ';' => tokens.push(Token(Lexeme::Semicolon, SrcRef::single(loc))),
                 '!' => if chars.clone().nth(1) == Some('=') {
                     tokens.push(Token(Lexeme::BangEq, SrcRef::double(loc)));
@@ -294,6 +299,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     "var" => Lexeme::Var,
                     "print" => Lexeme::Print,
                     "input" => Lexeme::Input,
+                    "clone" => Lexeme::Clone,
                     "true" => Lexeme::True,
                     "false" => Lexeme::False,
                     "null" => Lexeme::Null,
