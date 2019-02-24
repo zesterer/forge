@@ -8,18 +8,12 @@ In the future, you'll be able to use Forge as a general-purpose lightweight scri
 ## Example
 
 ```js
-var a = 1;
-var b = 1;
-var n = 0;
+var n = input "Enter a number: ";
 
-while n < 10 {
-	print "Fibonacci(" + (n + 1) + ") = " + a;
-
-	var tmp = b;
-	b = a;
-	a = tmp + b;
-
-	n = n + 1;
+var c = 1;
+while c <= n {
+	print "square(" + c + ") = " + c * c;
+	c = c + 1;
 }
 ```
 

@@ -1,0 +1,7 @@
+var n = input "Enter a number: ";
+
+var c = 1;
+while c <= n {
+	print "square(" + c + ") = " + c * c;
+	c = c + 1;
+}
