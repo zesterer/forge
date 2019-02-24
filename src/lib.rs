@@ -63,7 +63,10 @@ impl Engine {
             // TODO: Remove this
             //expr.print_debug(0);
 
-            Ok(self.global_scope.eval_expr(&expr, self.io.deref_mut(), &Rc::new(expr_str.to_string()))?)
+            Ok(
+                self.global_scope.eval_expr(&expr, self.io.deref_mut(), &Rc::new(expr_str.to_string()))
+                    .map_err(|err| ForgeError::InSrc(expr_str.to_string(), Box::new(err.into())))?
+            )
         };
         eval_fn()
     }
@@ -74,7 +77,8 @@ impl Engine {
 
             for stmt in &stmts {
                 // stmt.0.print_debug(0); // TODO: Remove this
-                self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut(), &Rc::new(module.to_string()))?;
+                self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut(), &Rc::new(module.to_string()))
+                    .map_err(|err| ForgeError::InSrc(module.to_string(), Box::new(err.into())))?;
             }
 
             Ok(())
@@ -96,7 +100,7 @@ impl Engine {
                 )?,
                 self.io.deref_mut(),
                 &Rc::new(input.to_string()),
-            )?)),
+            ).map_err(|err| ForgeError::InSrc(input.to_string(), Box::new(err.into())))?)),
         }
     }
 }
