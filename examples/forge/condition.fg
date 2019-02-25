@@ -1,7 +1,6 @@
 var x = true;
 var y = true;
 var z = true;
-s = 5;
 
 while x or y or z {
 	while !(y xor z) {

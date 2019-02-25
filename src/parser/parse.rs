@@ -226,35 +226,47 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
+    fn read_mid_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        Ok(match self.peek() {
+            Token(Lexeme::Input, r) => {
+                self.advance();
+                let (operand, err) = self.read_mid_unary()?;
+                let r_union = r.union(&operand.1);
+                (Node(Expr::UnaryInput(r, Box::new(operand)), r_union), err)
+            },
+            _ => self.read_addition()?,
+        })
+    }
+
     fn read_comparison(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
-        let (mut expr, mut max_err) = self.read_addition()?;
+        let (mut expr, mut max_err) = self.read_mid_unary()?;
 
         loop {
             match self.peek() {
                 Token(Lexeme::Greater, r) => {
                     self.advance();
-                    let (operand, err) = self.read_addition()?;
+                    let (operand, err) = self.read_mid_unary()?;
                     let r_union = r.union(&expr.1).union(&operand.1);
                     expr = Node(Expr::BinaryGreater(r, Box::new(expr), Box::new(operand)), r_union);
                     max_err = err.max(max_err);
                 },
                 Token(Lexeme::GreaterEq, r) => {
                     self.advance();
-                    let (operand, err) = self.read_addition()?;
+                    let (operand, err) = self.read_mid_unary()?;
                     let r_union = r.union(&expr.1).union(&operand.1);
                     expr = Node(Expr::BinaryGreaterEq(r, Box::new(expr), Box::new(operand)), r_union);
                     max_err = err.max(max_err);
                 },
                 Token(Lexeme::Less, r) => {
                     self.advance();
-                    let (operand, err) = self.read_addition()?;
+                    let (operand, err) = self.read_mid_unary()?;
                     let r_union = r.union(&expr.1).union(&operand.1);
                     expr = Node(Expr::BinaryLess(r, Box::new(expr), Box::new(operand)), r_union);
                     max_err = err.max(max_err);
                 },
                 Token(Lexeme::LessEq, r) => {
                     self.advance();
-                    let (operand, err) = self.read_addition()?;
+                    let (operand, err) = self.read_mid_unary()?;
                     let r_union = r.union(&expr.1).union(&operand.1);
                     expr = Node(Expr::BinaryLessEq(r, Box::new(expr), Box::new(operand)), r_union);
                     max_err = err.max(max_err);
@@ -319,20 +331,8 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    fn read_high_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
-        Ok(match self.peek() {
-            Token(Lexeme::Input, r) => {
-                self.advance();
-                let (operand, err) = self.read_high_unary()?;
-                let r_union = r.union(&operand.1);
-                (Node(Expr::UnaryInput(r, Box::new(operand)), r_union), err)
-            },
-            _ => self.read_logical()?,
-        })
-    }
-
     fn read_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
-        self.read_high_unary().map_err(|err| err.while_parsing("expression"))
+        self.read_logical().map_err(|err| err.while_parsing("expression"))
     }
 
     fn read_paren_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {

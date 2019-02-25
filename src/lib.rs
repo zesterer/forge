@@ -84,7 +84,8 @@ impl Engine {
 
     pub fn exec(&mut self, module: &str) -> ForgeResult<()> {
         let mut exec_fn = || {
-            let stmts = parser::Parser::new(module)?.parse_stmts()?;
+            let stmts = parser::Parser::new(module)?.parse_stmts()
+                .map_err(|err| ForgeError::InSrc(module.to_string(), Box::new(err.into())))?;
 
             for stmt in &stmts {
                 // stmt.0.print_debug(0); // TODO: Remove this
