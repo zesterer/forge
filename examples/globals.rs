@@ -1,15 +1,29 @@
-use forge::Engine;
+use forge::{
+    Engine,
+    Value,
+};
 
 fn main() {
     let mut engine = Engine::build()
-        .with_global("x", 1337)
-        .with_global("y", 2.5)
-        .with_global("fruit", "orange")
-        .with_global("apocalypse_occured_yet", false)
+        .with_global("name", "Alex")
+        .with_global("bag_weight", 46)
+        .with_global("groceries", Value::iter(vec!["pear", "banana", "carton of milk", "box of eggs"]))
+        .with_global("finished", false)
         .finish();
 
-    println!("x = {}", engine.eval("x").unwrap());
-    println!("y = {}", engine.eval("y").unwrap());
-    println!("fruit = {}", engine.eval("fruit").unwrap());
-    println!("apocalypse_occured_yet = {}", engine.eval("apocalypse_occured_yet").unwrap());
+    engine.exec(r#"
+        print "My name is " + name;
+        print "My bag weighs " + bag_weight + " Kg";
+
+        print "In my bag I have:";
+        for item in groceries {
+            print "A " + item;
+        }
+
+        if finished {
+            print "I've just finished shopping";
+        } else {
+            print "I've not finished shopping yet";
+        }
+    "#).unwrap();
 }

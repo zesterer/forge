@@ -483,7 +483,7 @@ impl<'a> ParseCtx<'a> {
                 let r_union = expr.1.union(&r_start).union(&r);
                 Ok((Node(Stmt::Print(expr), r_union), max_err))
             },
-            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).while_parsing(ELEMENT).max(max_err)),
         }
     }
 

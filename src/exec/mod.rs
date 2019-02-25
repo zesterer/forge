@@ -13,6 +13,7 @@ use std::{
     io::{self, prelude::*},
     rc::Rc,
     any::Any,
+    ops::DerefMut,
 };
 use crate::{
     output,
@@ -30,6 +31,7 @@ use block_scope::BlockScope;
 
 #[derive(Debug)]
 pub enum ExecError {
+    NotIterator,
     NotIterable(String),
     CannotCall(String),
     WrongArgNum(Option<SrcRef>, usize, usize),
@@ -59,6 +61,11 @@ impl ExecError {
     pub fn fmt_nice_located(&self, f: &mut fmt::Formatter, src: Option<&str>, psrc: Option<&str>, depth: usize, r: SrcRef) -> fmt::Result {
         writeln!(f, "[ERROR] Runtime error at {}...", r.start())?;
         match self {
+            ExecError::NotIterator => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Yielded value is not an iterator.", output::Repeat(' ', (depth + 1) * 3)))
+            },
             ExecError::NotIterable(s) => {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
@@ -134,6 +141,7 @@ impl ExecError {
             ExecError::WithSrc(src, err) => err.fmt_nice(f, Some(&src), psrc, depth),
             ExecError::WithPrevSrc(psrc, err) => err.fmt_nice(f, src, Some(&psrc), depth),
             ExecError::Io(_) => Ok(()),
+            ExecError::NotIterator => Ok(()),
             ExecError::NotIterable(_) => Ok(()),
             ExecError::CannotCall(_) => Ok(()),
             ExecError::WrongArgNum(_, _, _) => Ok(()),
@@ -353,7 +361,7 @@ pub trait Obj: 'static {
         })
     }
 
-    fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<dyn Iterator<Item = Value>>> {
+    fn eval_iter(&self, r: SrcRef) -> ExecResult<Value> {
         Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name()))))
     }
 }
@@ -472,15 +480,19 @@ pub trait Scope {
                 Ok(None)
             },
             Stmt::For(ident, expr, block) => {
-                let iter = self.eval_expr(&expr.0, io, src)?.eval_iter(expr.1)?;
-                for item in iter {
-                    let mut scope = BlockScope::new(self.as_scope_mut());
-                    scope.declare_var(ident.0.clone(), item);
-                    if let Some(val) = scope.eval_block(&block.0, io, src)? {
-                        return Ok(Some(val));
+                // TODO: How else to make sure we have exclusive access?
+                if let Value::Iter(iter) = self.eval_expr(&expr.0, io, src)?.eval_iter(expr.1)? {
+                    for item in iter.borrow_mut().deref_mut() {
+                        let mut scope = BlockScope::new(self.as_scope_mut());
+                        scope.declare_var(ident.0.clone(), item);
+                        if let Some(val) = scope.eval_block(&block.0, io, src)? {
+                            return Ok(Some(val));
+                        }
                     }
+                    Ok(None)
+                } else {
+                    Err(ExecError::At(expr.1, Box::new(ExecError::NotIterator)))
                 }
-                Ok(None)
             },
             Stmt::Decl(ident, expr) => {
                 let val = self.eval_expr(&expr.0, io, src)?;

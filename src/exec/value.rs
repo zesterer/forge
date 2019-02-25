@@ -3,6 +3,7 @@ use std::{
     cmp::PartialEq,
     fmt,
     ops::Range,
+    cell::RefCell,
 };
 use crate::{
     parser::{
@@ -26,6 +27,8 @@ use super::{
     Io,
 };
 
+pub trait ForgeIter = Iterator<Item=Value> + fmt::Debug;
+
 #[derive(Clone)]
 pub enum Value {
     Number(f64),
@@ -34,6 +37,7 @@ pub enum Value {
     Boolean(bool),
     Range(f64, f64),
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
+    Iter(Rc<RefCell<dyn ForgeIter>>),
     Custom(Rc<dyn Obj>),
     Null,
 }
@@ -47,6 +51,7 @@ impl fmt::Debug for Value {
             Value::Boolean(b) => writeln!(f, "Boolean({:?})", b),
             Value::Range(x, y) => writeln!(f, "Range({:?}, {:?})", x, y),
             Value::Fn(s, func) => writeln!(f, "Fn({:?}, {:?})", s, func),
+            Value::Iter(i) => writeln!(f, "Iter({:?})", i),
             Value::Custom(c) => writeln!(f, "Custom({:?})", &c as *const _),
             Value::Null => writeln!(f, "Null"),
         }
@@ -81,6 +86,12 @@ impl PartialEq for Value {
 }
 
 impl Value {
+    pub fn iter<T: Into<Value>, I: IntoIterator<Item=T> + 'static>(i: I) -> Self
+        where I::IntoIter: fmt::Debug
+    {
+        Value::Iter(Rc::new(RefCell::new(i.into_iter().map(|v| v.into()))))
+    }
+
     pub fn as_custom(self) -> Option<Rc<dyn Obj>> {
         match self {
             Value::Custom(rc) => Some(rc.clone()),
@@ -115,6 +126,7 @@ impl Value {
             Value::Boolean(_) => String::from("bool"),
             Value::Range(_, _) => String::from("range"),
             Value::Fn(_, _) => String::from("function"),
+            Value::Iter(_) => String::from("iterator"),
             Value::Custom(c) => c.get_type_name(),
             Value::Null => String::from("null"),
         }
@@ -128,6 +140,7 @@ impl Value {
             Value::Boolean(b) => format!("{}", b),
             Value::Range(x, y) => format!("{}..{}", x, y),
             Value::Fn(_, _) => String::from("<function>"),
+            Value::Iter(_) => String::from("<iterator>"),
             Value::Custom(c) => c.get_display_text()?,
             Value::Null => String::from("<null>"),
         })
@@ -373,10 +386,11 @@ impl Value {
         }
     }
 
-    pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<dyn Iterator<Item = Value>>> {
+    pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Value> {
         match self {
-            Value::Range(x, y) => Ok(Box::new((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
-            Value::String(s) => Ok(Box::new(s.chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
+            Value::Range(x, y) => Ok(Value::iter((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
+            Value::String(s) => Ok(Value::iter(s.chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
+            Value::Iter(i) => Ok(Value::Iter(i.clone())),
             Value::Custom(c) => c.eval_iter(r),
             _ => Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name())))),
         }
