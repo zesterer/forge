@@ -167,12 +167,6 @@ impl<'a> ParseCtx<'a> {
                 let r_union = r.union(&operand.1);
                 (Node(Expr::UnaryNeg(r, Box::new(operand)), r_union), err)
             },
-            Token(Lexeme::Input, r) => {
-                self.advance();
-                let (operand, err) = self.read_unary()?;
-                let r_union = r.union(&operand.1);
-                (Node(Expr::UnaryInput(r, Box::new(operand)), r_union), err)
-            },
             _ => self.read_call()?,
         })
     }
@@ -325,8 +319,20 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
+    fn read_high_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        Ok(match self.peek() {
+            Token(Lexeme::Input, r) => {
+                self.advance();
+                let (operand, err) = self.read_high_unary()?;
+                let r_union = r.union(&operand.1);
+                (Node(Expr::UnaryInput(r, Box::new(operand)), r_union), err)
+            },
+            _ => self.read_logical()?,
+        })
+    }
+
     fn read_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
-        self.read_logical().map_err(|err| err.while_parsing("expression"))
+        self.read_high_unary().map_err(|err| err.while_parsing("expression"))
     }
 
     fn read_paren_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {

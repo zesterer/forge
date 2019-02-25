@@ -12,6 +12,7 @@ use std::{
     fmt,
     io::{self, prelude::*},
     rc::Rc,
+    any::Any,
 };
 use crate::{
     output,
@@ -174,7 +175,7 @@ pub struct BinaryOpRef {
     right: SrcRef,
 }
 
-pub trait Obj: fmt::Debug {
+pub trait Obj: fmt::Debug + Any + 'static {
     fn get_type_name(&self) -> String;
 
     fn get_display_text(&self) -> ExecResult<String> {
@@ -330,8 +331,10 @@ pub trait Obj: fmt::Debug {
 
 pub trait Scope {
     fn get_var(&self, name: &str) -> ExecResult<Value>;
-    fn declare_var(&mut self, name: String, val: Value) -> ExecResult<()>;
+    fn take_var(&mut self, name: &str) -> Option<Value>;
+    fn declare_var(&mut self, name: String, val: Value);
     fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()>;
+    fn list(&self);
     fn as_scope_mut(&mut self) -> &mut dyn Scope;
 
     fn eval_expr(&self, expr: &Expr, io: &mut dyn Io, src: &Rc<String>) -> ExecResult<Value> {
@@ -356,7 +359,7 @@ pub trait Scope {
                         // TODO: Properly scope functions
                         let mut scope = GlobalScope::empty();
                         for (arg, param) in ((f.0).0).0.iter().zip(&params.0) {
-                            scope.declare_var(arg.0.clone(), self.eval_expr(&param.0, io, src)?).map_err(src_map)?;
+                            scope.declare_var(arg.0.clone(), self.eval_expr(&param.0, io, src)?);
                         }
                         Ok(scope.eval_block(&(f.1).0, io, &code)?.unwrap_or(Value::Null))
                     },
@@ -453,8 +456,7 @@ pub trait Scope {
             },
             Stmt::Decl(ident, expr) => {
                 let val = self.eval_expr(&expr.0, io, src)?;
-                self.declare_var(ident.0.clone(), val)
-                    .map_err(|err| ExecError::At(ident.1, Box::new(err)))?;
+                self.declare_var(ident.0.clone(), val);
                 Ok(None)
             },
             Stmt::Assign(ident, expr) => {

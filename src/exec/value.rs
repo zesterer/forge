@@ -1,13 +1,18 @@
 use std::{
     rc::Rc,
     cmp::PartialEq,
+    fmt,
 };
-use crate::parser::{
-    SrcRef,
-    ast::{
-        Node,
-        Args,
-        Block,
+use crate::{
+    ForgeError,
+    ForgeResult,
+    parser::{
+        SrcRef,
+        ast::{
+            Node,
+            Args,
+            Block,
+        },
     },
 };
 use super::{
@@ -26,6 +31,15 @@ pub enum Value {
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
     Custom(Rc<dyn Obj>),
     Null,
+}
+
+impl Value {
+    pub fn as_custom(self) -> Option<Rc<dyn Obj>> {
+        match self {
+            Value::Custom(rc) => Some(rc.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl PartialEq for Value {
@@ -292,5 +306,47 @@ impl Obj for Value {
                 refs,
             }),
         }
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_display_text().unwrap_or("<cannot display value>".to_string()))
+    }
+}
+
+impl<T: Obj + 'static> From<Rc<T>> for Value {
+    fn from(other: Rc<T>) -> Self {
+        Value::Custom(other)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(other: f64) -> Self {
+        Value::Number(other)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(other: i64) -> Self {
+        Value::Number(other as f64)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(other: bool) -> Self {
+        Value::Boolean(other)
+    }
+}
+
+impl<'a> From<&'a str> for Value {
+    fn from(other: &'a str) -> Self {
+        Value::String(other.to_string())
+    }
+}
+
+impl From<String> for Value {
+    fn from(other: String) -> Self {
+        Value::String(other)
     }
 }

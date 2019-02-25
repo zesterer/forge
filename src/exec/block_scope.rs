@@ -29,9 +29,14 @@ impl<'a> Scope for BlockScope<'a> {
             .or_else(|_| self.parent.get_var(name))
     }
 
-    fn declare_var(&mut self, name: String, val: Value) -> ExecResult<()> {
+    fn take_var(&mut self, name: &str) -> Option<Value> {
+        self.vars
+            .remove(name)
+            .or_else(|| self.parent.take_var(name))
+    }
+
+    fn declare_var(&mut self, name: String, val: Value) {
         self.vars.insert(name, val);
-        Ok(())
     }
 
     fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()> {
@@ -40,6 +45,12 @@ impl<'a> Scope for BlockScope<'a> {
             .map(|v| *v = val.clone())
             .ok_or(ExecError::NoSuchItem(name.to_string()))
             .or_else(|_| self.parent.assign_var(name, val))
+    }
+
+    fn list(&self) {
+        for (name, val) in &self.vars {
+            println!("{} = {:?}", name, val);
+        }
     }
 
     fn as_scope_mut(&mut self) -> &mut dyn Scope {

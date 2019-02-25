@@ -26,11 +26,13 @@ impl Scope for GlobalScope {
             .ok_or(ExecError::NoSuchItem(name.to_string()))
     }
 
-    fn declare_var(&mut self, name: String, val: Value) -> ExecResult<()> {
+    fn take_var(&mut self, name: &str) -> Option<Value> {
         self.vars
-            .insert(name.clone(), val)
-            .and(Some(Err(ExecError::ItemExists(name))))
-            .unwrap_or(Ok(()))
+            .remove(name)
+    }
+
+    fn declare_var(&mut self, name: String, val: Value) {
+        self.vars.insert(name, val);
     }
 
     fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()> {
@@ -38,6 +40,12 @@ impl Scope for GlobalScope {
             .get_mut(name)
             .map(|v| *v = val)
             .ok_or(ExecError::NoSuchItem(name.to_string()))
+    }
+
+    fn list(&self) {
+        for (name, val) in &self.vars {
+            println!("{} = {:?}", name, val);
+        }
     }
 
     fn as_scope_mut(&mut self) -> &mut dyn Scope {

@@ -1,4 +1,4 @@
-#![feature(bind_by_move_pattern_guards)]
+#![feature(bind_by_move_pattern_guards, try_from)]
 
 mod parser;
 mod exec;
@@ -28,6 +28,7 @@ use std::{
 
 pub struct EngineBuilder {
     io: Box<dyn Io>,
+    global_scope: GlobalScope,
 }
 
 impl EngineBuilder {
@@ -36,10 +37,20 @@ impl EngineBuilder {
         self
     }
 
+    pub fn with_global<T: Into<Value>>(mut self, name: &str, val: T) -> Self {
+        self.global_scope.declare_var(name.to_string(), val.into());
+        self
+    }
+
+    pub fn with_global_custom<T: Obj>(mut self, name: &str, val: T) -> Self {
+        self.global_scope.declare_var(name.to_string(), Value::Custom(Rc::new(val)));
+        self
+    }
+
     pub fn finish(self) -> Engine {
         Engine {
             io: self.io,
-            global_scope: GlobalScope::empty(),
+            global_scope: self.global_scope,
         }
     }
 }
@@ -53,6 +64,7 @@ impl Engine {
     pub fn build() -> EngineBuilder {
         EngineBuilder {
             io: Box::new(DefaultIo),
+            global_scope: GlobalScope::empty(),
         }
     }
 
@@ -102,6 +114,14 @@ impl Engine {
                 &Rc::new(input.to_string()),
             ).map_err(|err| ForgeError::InSrc(input.to_string(), Box::new(err.into())))?)),
         }
+    }
+
+    pub fn global_scope(&self) -> &GlobalScope {
+        &self.global_scope
+    }
+
+    pub fn take(&mut self, name: &str) -> Option<Value> {
+        self.global_scope.take_var(name)
     }
 }
 
