@@ -1,4 +1,8 @@
-#![feature(bind_by_move_pattern_guards, try_from)]
+#![feature(
+    bind_by_move_pattern_guards,
+    try_from,
+    fn_traits,
+)]
 
 mod parser;
 mod exec;

@@ -10,6 +10,7 @@ use crate::{
             Node,
             Args,
             Block,
+            Expr,
         },
     },
 };
@@ -19,9 +20,12 @@ use super::{
     BinaryOpRef,
     ExecError,
     ExecResult,
+    Scope,
+    GlobalScope,
+    Io,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Value {
     Number(f64),
     String(String),
@@ -31,11 +35,27 @@ pub enum Value {
     Null,
 }
 
-impl Value {
-    pub fn as_custom(self) -> Option<Rc<dyn Obj>> {
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Custom(rc) => Some(rc.clone()),
-            _ => None,
+            Value::Number(x) => writeln!(f, "Number({:?})", x),
+            Value::String(s) => writeln!(f, "String({:?})", s),
+            Value::Boolean(b) => writeln!(f, "Boolean({:?})", b),
+            Value::Fn(s, func) => writeln!(f, "Fn({:?}, {:?})", s, func),
+            Value::Custom(c) => writeln!(f, "Custom({:?})", &c as *const _),
+            Value::Null => writeln!(f, "Null"),
+        }
+    }
+}
+
+impl<V: Into<Value>, F: Fn() -> V + 'static> Obj for F {
+    fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, _caller: &mut dyn Scope, _io: &mut dyn Io, src: &Rc<String>, _r_caller: SrcRef) -> ExecResult<Value> {
+        if params.0.len() != 0 {
+            Err(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
+                None, 0, params.0.len()
+            )))).map_err(|err| ExecError::WithSrc(src.clone(), Box::new(err)))
+        } else {
+            Ok(self.call(()).into())
         }
     }
 }
@@ -46,41 +66,40 @@ impl PartialEq for Value {
             (Value::Number(x), Value::Number(y)) => x.eq(y),
             (Value::String(x), Value::String(y)) => x.eq(y),
             (Value::Boolean(x), Value::Boolean(y)) => x.eq(y),
-            (Value::Fn(_, x), Value::Fn(_, y)) => Rc::ptr_eq(x, y),
+            (Value::Fn(_, x), Value::Fn(_, y)) => Rc::ptr_eq(&x, &y),
             (Value::Null, Value::Null) => true,
             _ => false,
         }
     }
 }
 
-impl PartialEq<f64> for Value {
-    fn eq(&self, other: &f64) -> bool {
-        match self {
-            Value::Number(x) => x.eq(other),
-            _ => false,
-        }
-    }
-}
-
-impl<'a> PartialEq<&'a str> for Value {
-    fn eq(&self, other: &&'a str) -> bool {
-        match self {
-            Value::String(x) => x.eq(*other),
-            _ => false,
-        }
-    }
-}
-
-impl PartialEq<bool> for Value {
-    fn eq(&self, other: &bool) -> bool {
-        match self {
-            Value::Boolean(x) => x.eq(other),
-            _ => false,
-        }
-    }
-}
-
 impl Value {
+    pub fn as_custom(self) -> Option<Rc<dyn Obj>> {
+        match self {
+            Value::Custom(rc) => Some(rc.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn call(&self, params: &Node<Vec<Node<Expr>>>, caller: &mut dyn Scope, io: &mut dyn Io, src: &Rc<String>, r_caller: SrcRef) -> ExecResult<Value> {
+        match self {
+            Value::Fn(code, f) => if ((f.0).0).0.len() != params.0.len() {
+                return Err(ExecError::WithPrevSrc(code.clone(), Box::new(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
+                    Some((f.0).1), ((f.0).0).0.len(), params.0.len()
+                )))))).map_err(|err| ExecError::WithSrc(src.clone(), Box::new(err)));
+            } else {
+                // TODO: Properly scope functions
+                let mut scope = GlobalScope::empty();
+                for (arg, param) in ((f.0).0).0.iter().zip(&params.0) {
+                    scope.declare_var(arg.0.clone(), caller.eval_expr(&param.0, io, src)?);
+                }
+                Ok(scope.eval_block(&(f.1).0, io, &code)?.unwrap_or(Value::Null))
+            },
+            Value::Custom(custom) => custom.eval_call(params, caller, io, src, r_caller),
+            _ => Err(ExecError::At(r_caller, Box::new(ExecError::CannotCall(self.get_type_name())))),
+        }
+    }
+
     pub fn get_type_name(&self) -> String {
         match self {
             Value::Number(_) => String::from("number"),
@@ -307,6 +326,33 @@ impl Value {
     }
 }
 
+impl PartialEq<f64> for Value {
+    fn eq(&self, other: &f64) -> bool {
+        match self {
+            Value::Number(x) => x.eq(other),
+            _ => false,
+        }
+    }
+}
+
+impl<'a> PartialEq<&'a str> for Value {
+    fn eq(&self, other: &&'a str) -> bool {
+        match self {
+            Value::String(x) => x.eq(*other),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<bool> for Value {
+    fn eq(&self, other: &bool) -> bool {
+        match self {
+            Value::Boolean(x) => x.eq(other),
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.get_display_text().unwrap_or("<cannot display value>".to_string()))
@@ -316,6 +362,12 @@ impl fmt::Display for Value {
 impl<T: Obj> From<T> for Value {
     fn from(other: T) -> Self {
         Value::Custom(Rc::new(other))
+    }
+}
+
+impl From<()> for Value {
+    fn from(_: ()) -> Self {
+        Value::Null
     }
 }
 

@@ -22,6 +22,7 @@ use crate::{
             Expr,
             Stmt,
             Block,
+            Node,
         },
     },
 };
@@ -30,7 +31,7 @@ use block_scope::BlockScope;
 #[derive(Debug)]
 pub enum ExecError {
     CannotCall(String),
-    WrongArgNum(SrcRef, usize, usize),
+    WrongArgNum(Option<SrcRef>, usize, usize),
     CannotDisplay(String),
     CouldNotParse(String),
     Io(io::Error),
@@ -58,8 +59,10 @@ impl ExecError {
         writeln!(f, "[ERROR] Runtime error at {}...", r.start())?;
         match self {
             ExecError::WrongArgNum(r_args, x, y) => {
+                if let Some(r_args) = r_args {
+                    output::fmt_ref(f, *r_args, psrc, depth + 1)?;
+                }
                 Ok(())
-                    .and_then(|_| output::fmt_ref(f, *r_args, psrc, depth + 1))
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
                     .and_then(|_| writeln!(f, "{}Tried to call a function with the wrong number of parameters. Expected {}, found {}.", output::Repeat(' ', (depth + 1) * 3), x, y))
             },
@@ -175,13 +178,17 @@ pub struct BinaryOpRef {
     right: SrcRef,
 }
 
-pub trait Obj: fmt::Debug + Any + 'static {
+pub trait Obj: 'static {
     fn get_type_name(&self) -> String {
         format!("{:?}", self.type_id())
     }
 
     fn get_display_text(&self) -> ExecResult<String> {
         Err(ExecError::CannotDisplay(self.get_type_name()))
+    }
+
+    fn eval_call(&self, _params: &Node<Vec<Node<Expr>>>, _caller: &mut dyn Scope, _io: &mut dyn Io, _src: &Rc<String>, r_caller: SrcRef) -> ExecResult<Value> {
+        Err(ExecError::At(r_caller, Box::new(ExecError::CannotCall(self.get_type_name()))))
     }
 
     fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
@@ -339,7 +346,7 @@ pub trait Scope {
     fn list(&self);
     fn as_scope_mut(&mut self) -> &mut dyn Scope;
 
-    fn eval_expr(&self, expr: &Expr, io: &mut dyn Io, src: &Rc<String>) -> ExecResult<Value> {
+    fn eval_expr(&mut self, expr: &Expr, io: &mut dyn Io, src: &Rc<String>) -> ExecResult<Value> {
         let src_map = |err| ExecError::WithSrc(src.clone(), Box::new(err));
 
         match expr {
@@ -352,21 +359,7 @@ pub trait Scope {
                 self.get_var(&name.0).map_err(|err| ExecError::At(name.1, Box::new(err))).map_err(src_map),
             Expr::DotAccess(_, _, _) => unimplemented!(),
             Expr::Call(_r, expr, params) => {
-                match self.eval_expr(&expr.0, io, src)? {
-                    Value::Fn(code, f) => if ((f.0).0).0.len() != params.0.len() {
-                        return Err(ExecError::WithPrevSrc(code, Box::new(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
-                            (f.0).1, ((f.0).0).0.len(), params.0.len()
-                        )))))).map_err(src_map);
-                    } else {
-                        // TODO: Properly scope functions
-                        let mut scope = GlobalScope::empty();
-                        for (arg, param) in ((f.0).0).0.iter().zip(&params.0) {
-                            scope.declare_var(arg.0.clone(), self.eval_expr(&param.0, io, src)?);
-                        }
-                        Ok(scope.eval_block(&(f.1).0, io, &code)?.unwrap_or(Value::Null))
-                    },
-                    val => Err(ExecError::At(expr.1, Box::new(ExecError::CannotCall(val.get_type_name())))),
-                }
+                self.eval_expr(&expr.0, io, src)?.call(params, self.as_scope_mut(), io, src, expr.1)
             },
             Expr::UnaryNot(r, expr) =>
                 self.eval_expr(&expr.0, io, src)?.eval_not(UnaryOpRef { op: *r, expr: expr.1 }).map_err(src_map),
