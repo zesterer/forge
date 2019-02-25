@@ -42,11 +42,6 @@ impl EngineBuilder {
         self
     }
 
-    pub fn with_global_custom<T: Obj>(mut self, name: &str, val: T) -> Self {
-        self.global_scope.declare_var(name.to_string(), Value::Custom(Rc::new(val)));
-        self
-    }
-
     pub fn finish(self) -> Engine {
         Engine {
             io: self.io,

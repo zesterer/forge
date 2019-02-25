@@ -176,7 +176,9 @@ pub struct BinaryOpRef {
 }
 
 pub trait Obj: fmt::Debug + Any + 'static {
-    fn get_type_name(&self) -> String;
+    fn get_type_name(&self) -> String {
+        format!("{:?}", self.type_id())
+    }
 
     fn get_display_text(&self) -> ExecResult<String> {
         Err(ExecError::CannotDisplay(self.get_type_name()))
