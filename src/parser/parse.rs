@@ -226,6 +226,23 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
+    fn read_high_binary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        let (mut expr, mut max_err) = self.read_addition()?;
+
+        loop {
+            match self.peek() {
+                Token(Lexeme::DotDot, r) => {
+                    self.advance();
+                    let (operand, err) = self.read_addition()?;
+                    let r_union = r.union(&expr.1).union(&operand.1);
+                    expr = Node(Expr::BinaryRange(r, Box::new(expr), Box::new(operand)), r_union);
+                    max_err = err.max(max_err);
+                },
+                Token(_l, _r) => return Ok((expr, max_err)),
+            };
+        }
+    }
+
     fn read_mid_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         Ok(match self.peek() {
             Token(Lexeme::Input, r) => {
@@ -234,7 +251,7 @@ impl<'a> ParseCtx<'a> {
                 let r_union = r.union(&operand.1);
                 (Node(Expr::UnaryInput(r, Box::new(operand)), r_union), err)
             },
-            _ => self.read_addition()?,
+            _ => self.read_high_binary()?,
         })
     }
 
@@ -543,6 +560,35 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
+    fn read_for_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
+        const ELEMENT: &'static str = "for statement";
+
+        let r_start = match self.peek() {
+            Token(Lexeme::For, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::For), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (ident, r_ident) = match self.peek() {
+            Token(Lexeme::Ident(s), r) => { self.advance(); (s.clone(), r) },
+            Token(l, r) => return Err(expected(Item::Ident, Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let r_middle = match self.peek() {
+            Token(Lexeme::In, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::In), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (expr, max_err) = self.read_expr().map_err(|err| err.while_parsing(ELEMENT))?;
+
+        match self.read_block() {
+            Ok((block, err)) => {
+                let r_union = expr.1.union(&r_start).union(&r_ident).union(&r_middle).union(&block.1);
+                Ok((Node(Stmt::For(Node(ident, r_ident), expr, block), r_union), err.max(max_err).while_parsing(ELEMENT)))
+            }
+            Err(err) => Err(err.max(max_err).while_parsing(ELEMENT)),
+        }
+    }
+
     fn read_decl_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
         const ELEMENT: &'static str = "variable declaration";
 
@@ -628,6 +674,15 @@ impl<'a> ParseCtx<'a> {
 
         let mut this = self.clone();
         let max_err = match this.read_while_stmt() {
+            Ok((stmt, err)) => {
+                *self = this;
+                return Ok((stmt, err.max(max_err)))
+            },
+            Err(err) => err.max(max_err),
+        };
+
+        let mut this = self.clone();
+        let max_err = match this.read_for_stmt() {
             Ok((stmt, err)) => {
                 *self = this;
                 return Ok((stmt, err.max(max_err)))

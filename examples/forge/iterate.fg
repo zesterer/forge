@@ -1,9 +1,13 @@
-var c = 0;
-while c < 10 {
+for c in 0..10 {
     print "Iteration " + c + "!";
-    c = c + 1;
 }
 
-# for i in 0:10 {
-# 	print "Iteration" + i + "!";
-# }
+for x in 1..4 {
+	for y in 1..4 {
+		print "(" + x + ", " + y + ")";
+	}
+}
+
+for c in "test" {
+	print "Letter " + c;
+}

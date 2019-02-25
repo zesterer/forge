@@ -1,7 +1,11 @@
-var n = input "Enter a number: ";
+# A function to square numbers
+var square = |x| {
+	return x * x;
+};
 
-var c = 1;
-while c <= n {
-	print "square(" + c + ") = " + c * c;
-	c = c + 1;
+var n = input "How many squares? ";
+
+# Iterate and print squares
+for i in 0..n {
+	print "square(" + (i + 1) + ") = " + square(i + 1);
 }

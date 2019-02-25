@@ -3,10 +3,7 @@ use std::{
     fs,
     io::prelude::*,
 };
-use forge::{
-    Engine,
-    Obj,
-};
+use forge::Engine;
 use rustyline::Editor;
 
 fn prompt() {

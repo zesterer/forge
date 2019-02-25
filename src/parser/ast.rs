@@ -31,6 +31,7 @@ pub enum Expr {
     BinaryAnd(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryOr(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryXor(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryRange(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
 }
 
@@ -47,6 +48,7 @@ pub enum Stmt {
     If(Node<Expr>, Node<Block>),
     IfElse(Node<Expr>, Node<Block>, Node<Block>),
     While(Node<Expr>, Node<Block>),
+    For(Node<String>, Node<Expr>, Node<Block>),
     Decl(Node<String>, Node<Expr>),
     Assign(Node<String>, Node<Expr>),
     Return(Node<Expr>),
@@ -168,6 +170,11 @@ impl Expr {
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
+            Expr::BinaryRange(_, left, right) => {
+                println!("{}Binary range", Spaces(depth));
+                left.0.print_debug(depth + 1);
+                right.0.print_debug(depth + 1);
+            },
             Expr::Fn(_, rc) => {
                 println!("{}Function", Spaces(depth));
                 (rc.0).0.print_debug(depth + 1);
@@ -201,6 +208,11 @@ impl Stmt {
             },
             Stmt::While(expr, block) => {
                 println!("{}While statement", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+                block.0.print_debug(depth + 1);
+            },
+            Stmt::For(ident, expr, block) => {
+                println!("{}For statement '{}'", Spaces(depth), ident.0);
                 expr.0.print_debug(depth + 1);
                 block.0.print_debug(depth + 1);
             },

@@ -30,12 +30,13 @@ use block_scope::BlockScope;
 
 #[derive(Debug)]
 pub enum ExecError {
+    NotIterable(String),
     CannotCall(String),
     WrongArgNum(Option<SrcRef>, usize, usize),
     CannotDisplay(String),
     CouldNotParse(String),
     Io(io::Error),
-    Truthiness(SrcRef, String),
+    CannotDetermineTruthiness(SrcRef, String),
     UnaryOp {
         op: &'static str,
         expr_type: String,
@@ -58,6 +59,16 @@ impl ExecError {
     pub fn fmt_nice_located(&self, f: &mut fmt::Formatter, src: Option<&str>, psrc: Option<&str>, depth: usize, r: SrcRef) -> fmt::Result {
         writeln!(f, "[ERROR] Runtime error at {}...", r.start())?;
         match self {
+            ExecError::NotIterable(s) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Value of type '{}' is not iterable.", output::Repeat(' ', (depth + 1) * 3), s))
+            },
+            ExecError::CannotCall(s) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Cannot call value of type '{}'.", output::Repeat(' ', (depth + 1) * 3), s))
+            },
             ExecError::WrongArgNum(r_args, x, y) => {
                 if let Some(r_args) = r_args {
                     output::fmt_ref(f, *r_args, psrc, depth + 1)?;
@@ -65,11 +76,6 @@ impl ExecError {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
                     .and_then(|_| writeln!(f, "{}Tried to call a function with the wrong number of parameters. Expected {}, found {}.", output::Repeat(' ', (depth + 1) * 3), x, y))
-            },
-            ExecError::CannotCall(s) => {
-                Ok(())
-                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
-                    .and_then(|_| writeln!(f, "{}Cannot call value of type '{}'.", output::Repeat(' ', (depth + 1) * 3), s))
             },
             ExecError::CannotDisplay(s) => {
                 Ok(())
@@ -104,7 +110,7 @@ impl ExecError {
 
     pub fn fmt_nice(&self, f: &mut fmt::Formatter, src: Option<&str>, psrc: Option<&str>, depth: usize) -> fmt::Result {
         match self {
-            ExecError::Truthiness(r, expr_type) => {
+            ExecError::CannotDetermineTruthiness(r, expr_type) => {
                 Ok(())
                     .and_then(|_| writeln!(f, "[ERROR] Runtime error at {}...", r.start()))
                     .and_then(|_| output::fmt_ref(f, *r, src, depth + 1))
@@ -128,6 +134,7 @@ impl ExecError {
             ExecError::WithSrc(src, err) => err.fmt_nice(f, Some(&src), psrc, depth),
             ExecError::WithPrevSrc(psrc, err) => err.fmt_nice(f, src, Some(&psrc), depth),
             ExecError::Io(_) => Ok(()),
+            ExecError::NotIterable(_) => Ok(()),
             ExecError::CannotCall(_) => Ok(()),
             ExecError::WrongArgNum(_, _, _) => Ok(()),
             ExecError::CannotDisplay(_) => Ok(()),
@@ -192,7 +199,7 @@ pub trait Obj: 'static {
     }
 
     fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
-        Err(ExecError::Truthiness(r, self.get_type_name()))
+        Err(ExecError::CannotDetermineTruthiness(r, self.get_type_name()))
     }
 
     fn eval_not(&self, refs: UnaryOpRef) -> ExecResult<Value> {
@@ -336,6 +343,19 @@ pub trait Obj: 'static {
             refs,
         })
     }
+
+    fn eval_range(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+        Err(ExecError::BinaryOp {
+            op: "range",
+            left_type: self.get_type_name(),
+            right_type: self.get_type_name(),
+            refs,
+        })
+    }
+
+    fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<dyn Iterator<Item = Value>>> {
+        Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name()))))
+    }
 }
 
 pub trait Scope {
@@ -408,6 +428,8 @@ pub trait Scope {
                 self.eval_expr(&left.0, io, src)?.eval_or(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryXor(r, left, right) =>
                 self.eval_expr(&left.0, io, src)?.eval_xor(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
+            Expr::BinaryRange(r, left, right) =>
+                self.eval_expr(&left.0, io, src)?.eval_range(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::Fn(code, rc) =>
                 Ok(Value::Fn(code.clone(), rc.clone()))
         }
@@ -444,6 +466,17 @@ pub trait Scope {
             Stmt::While(expr, block) => {
                 while self.eval_expr(&expr.0, io, src)?.eval_truth(expr.1)? {
                     if let Some(val) = BlockScope::new(self.as_scope_mut()).eval_block(&block.0, io, src)? {
+                        return Ok(Some(val));
+                    }
+                }
+                Ok(None)
+            },
+            Stmt::For(ident, expr, block) => {
+                let iter = self.eval_expr(&expr.0, io, src)?.eval_iter(expr.1)?;
+                for item in iter {
+                    let mut scope = BlockScope::new(self.as_scope_mut());
+                    scope.declare_var(ident.0.clone(), item);
+                    if let Some(val) = scope.eval_block(&block.0, io, src)? {
                         return Ok(Some(val));
                     }
                 }

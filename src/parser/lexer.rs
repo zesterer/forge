@@ -14,6 +14,7 @@ pub enum Lexeme {
     LBrack, RBrack,
     Comma,
     Dot,
+    DotDot,
     Colon,
     Semicolon,
     Pipe,
@@ -63,6 +64,7 @@ impl fmt::Display for Lexeme {
             Lexeme::RBrack => write!(f, "]"),
             Lexeme::Comma => write!(f, ","),
             Lexeme::Dot => write!(f, "."),
+            Lexeme::DotDot => write!(f, ".."),
             Lexeme::Colon => write!(f, ":"),
             Lexeme::Semicolon => write!(f, ";"),
             Lexeme::Pipe => write!(f, "|"),
@@ -163,10 +165,15 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 '[' => tokens.push(Token(Lexeme::LBrack, SrcRef::single(loc))),
                 ']' => tokens.push(Token(Lexeme::RBrack, SrcRef::single(loc))),
                 ',' => tokens.push(Token(Lexeme::Comma, SrcRef::single(loc))),
-                '.' => tokens.push(Token(Lexeme::Dot, SrcRef::single(loc))),
                 '|' => tokens.push(Token(Lexeme::Pipe, SrcRef::single(loc))),
                 ':' => tokens.push(Token(Lexeme::Colon, SrcRef::single(loc))),
                 ';' => tokens.push(Token(Lexeme::Semicolon, SrcRef::single(loc))),
+                '.' => if chars.clone().nth(1) == Some('.') {
+                    tokens.push(Token(Lexeme::DotDot, SrcRef::double(loc)));
+                    incr = 2;
+                } else {
+                    tokens.push(Token(Lexeme::Dot, SrcRef::single(loc)));
+                },
                 '!' => if chars.clone().nth(1) == Some('=') {
                     tokens.push(Token(Lexeme::BangEq, SrcRef::double(loc)));
                     incr = 2;
@@ -267,12 +274,13 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
             },
             State::Number => match c {
                 '0' ... '9' => strbuf.push(c),
-                '.' => if !seen_dot {
+                '.' => if !seen_dot && chars.clone().nth(1).map(|c| c.is_ascii_digit()).unwrap_or(false) {
                     strbuf.push(c);
                     seen_dot = true;
                 } else {
                     tokens.push(Token(Lexeme::Number(strbuf.parse().unwrap()), SrcRef::many(start_loc, loc)));
                     state = State::Default;
+                    incr = 0;
                 },
                 _ => {
                     tokens.push(Token(Lexeme::Number(strbuf.parse().unwrap()), SrcRef::many(start_loc, loc)));

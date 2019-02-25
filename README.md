@@ -16,10 +16,8 @@ var square = |x| {
 var n = input "How many squares? ";
 
 # Iterate and print squares
-var i = 1;
-while i <= n {
-	print "square(" + i + ") = " + square(i);
-	i = i + 1;
+for i in 0..n {
+	print "square(" + (i + 1) + ") = " + square(i + 1);
 }
 ```
 
@@ -61,11 +59,14 @@ $ forge my_script.fg
 - [x] Scoped variable declaration
 - [x] Function objects
 - [x] Function calling
-- [ ] Iterators
+- [x] Rust-to-Forge object interface
+- [x] Rust-to-Forge type coercion
+- [-] Rust callbacks *Only Rust closures with no arguments are currently supported*
+- [x] Iterators
+- [x] Rust-to-Forge iterators
 - [ ] Increment, decrement, and similar operators
 - [ ] Lvalues vs rvalues
 - [ ] Objects
-- [ ] Rugged Rust <-> Forge FFI
 - [ ] Modules as objects
 - [ ] Scoped constants
 - [ ] AST optimisation
@@ -81,7 +82,9 @@ Forge has several distinct types:
 
 - Number *64-bit, floating-point*
 - String *unicode-compliant*
+- Char *unicode-compliant*
 - Boolean
+- Range
 - Function
 - List *Currently unimplemented*
 - Map *Currently unimplemented*

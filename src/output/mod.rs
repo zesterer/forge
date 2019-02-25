@@ -21,7 +21,7 @@ pub fn fmt_ref(f: &mut fmt::Formatter, r: SrcRef, src: Option<&str>, depth: usiz
             .and_then(|_| writeln!(f, "{}{}|{}{}",
                 Repeat(' ', depth * 3),
                 Repeat(' ', pos_str.len()),
-                Repeat('-', col),
+                Repeat(' ', col),
                 Repeat('^', r.length_in(src).unwrap_or(1),
             )))
     } else if let Some(src) = src {

@@ -2,6 +2,7 @@ use std::{
     rc::Rc,
     cmp::PartialEq,
     fmt,
+    ops::Range,
 };
 use crate::{
     parser::{
@@ -29,7 +30,9 @@ use super::{
 pub enum Value {
     Number(f64),
     String(String),
+    Char(char),
     Boolean(bool),
+    Range(f64, f64),
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
     Custom(Rc<dyn Obj>),
     Null,
@@ -40,7 +43,9 @@ impl fmt::Debug for Value {
         match self {
             Value::Number(x) => writeln!(f, "Number({:?})", x),
             Value::String(s) => writeln!(f, "String({:?})", s),
+            Value::Char(c) => writeln!(f, "Char({:?})", c),
             Value::Boolean(b) => writeln!(f, "Boolean({:?})", b),
+            Value::Range(x, y) => writeln!(f, "Range({:?}, {:?})", x, y),
             Value::Fn(s, func) => writeln!(f, "Fn({:?}, {:?})", s, func),
             Value::Custom(c) => writeln!(f, "Custom({:?})", &c as *const _),
             Value::Null => writeln!(f, "Null"),
@@ -65,7 +70,9 @@ impl PartialEq for Value {
         match (self, other) {
             (Value::Number(x), Value::Number(y)) => x.eq(y),
             (Value::String(x), Value::String(y)) => x.eq(y),
+            (Value::Char(x), Value::Char(y)) => x.eq(y),
             (Value::Boolean(x), Value::Boolean(y)) => x.eq(y),
+            (Value::Range(x0, x1), Value::Range(y0, y1)) => (x0, x1).eq(&(y0, y1)),
             (Value::Fn(_, x), Value::Fn(_, y)) => Rc::ptr_eq(&x, &y),
             (Value::Null, Value::Null) => true,
             _ => false,
@@ -104,7 +111,9 @@ impl Value {
         match self {
             Value::Number(_) => String::from("number"),
             Value::String(_) => String::from("string"),
+            Value::Char(_) => String::from("char"),
             Value::Boolean(_) => String::from("bool"),
+            Value::Range(_, _) => String::from("range"),
             Value::Fn(_, _) => String::from("function"),
             Value::Custom(c) => c.get_type_name(),
             Value::Null => String::from("null"),
@@ -115,7 +124,9 @@ impl Value {
         Ok(match self {
             Value::Number(x) => format!("{}", x),
             Value::String(s) => s.clone(),
+            Value::Char(c) => format!("{}", c),
             Value::Boolean(b) => format!("{}", b),
+            Value::Range(x, y) => format!("{}..{}", x, y),
             Value::Fn(_, _) => String::from("<function>"),
             Value::Custom(c) => c.get_display_text()?,
             Value::Null => String::from("<null>"),
@@ -125,13 +136,15 @@ impl Value {
     pub fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
         match self {
             Value::Boolean(b) => Ok(*b),
-            _ => Err(ExecError::Truthiness(r, self.get_type_name())),
+            Value::Custom(c) => c.eval_truth(r),
+            _ => Err(ExecError::CannotDetermineTruthiness(r, self.get_type_name())),
         }
     }
 
     pub fn eval_not(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Boolean(b) => Ok(Value::Boolean(!b)),
+            Value::Custom(c) => c.eval_not(refs),
             _ => Err(ExecError::UnaryOp {
                 op: "not",
                 expr_type: self.get_type_name(),
@@ -143,6 +156,7 @@ impl Value {
     pub fn eval_neg(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Number(x) => Ok(Value::Number(-x)),
+            Value::Custom(c) => c.eval_neg(refs),
             _ => Err(ExecError::UnaryOp {
                 op: "not",
                 expr_type: self.get_type_name(),
@@ -154,6 +168,7 @@ impl Value {
     pub fn eval_mul(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x * *y)),
+            (Value::Custom(c), rhs) => c.eval_mul(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "mul",
                 left_type: this.get_type_name(),
@@ -166,6 +181,7 @@ impl Value {
     pub fn eval_div(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x / *y)),
+            (Value::Custom(c), rhs) => c.eval_div(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "div",
                 left_type: this.get_type_name(),
@@ -178,6 +194,7 @@ impl Value {
     pub fn eval_mod(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x % *y)),
+            (Value::Custom(c), rhs) => c.eval_mod(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "mod",
                 left_type: this.get_type_name(),
@@ -191,9 +208,11 @@ impl Value {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x.clone() + y)),
             (Value::String(x), Value::String(y)) => Ok(Value::String(x.clone() + y)),
+            (Value::String(x), Value::Char(y)) => Ok(Value::String(format!("{}{}", x, y))),
             (Value::String(x), Value::Number(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
             (Value::String(x), Value::Boolean(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
             (Value::String(x), Value::Null) => Ok(Value::String(x.clone() + &"null")),
+            (Value::Custom(c), rhs) => c.eval_add(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "add",
                 left_type: this.get_type_name(),
@@ -206,6 +225,7 @@ impl Value {
     pub fn eval_sub(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x - *y)),
+            (Value::Custom(c), rhs) => c.eval_sub(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "sub",
                 left_type: this.get_type_name(),
@@ -219,6 +239,8 @@ impl Value {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x > *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x > *y)),
+            (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x > *y)),
+            (Value::Custom(c), rhs) => c.eval_greater(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "greater",
                 left_type: this.get_type_name(),
@@ -232,6 +254,8 @@ impl Value {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x >= *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x >= *y)),
+            (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x >= *y)),
+            (Value::Custom(c), rhs) => c.eval_greater_eq(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "greater_eq",
                 left_type: this.get_type_name(),
@@ -245,6 +269,8 @@ impl Value {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x < *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x < *y)),
+            (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x < *y)),
+            (Value::Custom(c), rhs) => c.eval_less(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "less",
                 left_type: this.get_type_name(),
@@ -258,6 +284,8 @@ impl Value {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x <= *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x <= *y)),
+            (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x <= *y)),
+            (Value::Custom(c), rhs) => c.eval_less_eq(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "less_eq",
                 left_type: this.get_type_name(),
@@ -267,23 +295,27 @@ impl Value {
         }
     }
 
-    pub fn eval_eq(&self, rhs: &Value, _refs: BinaryOpRef) -> ExecResult<Value> {
+    pub fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x == *y)),
+            (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Fn(_, x), Value::Fn(_, y)) => Ok(Value::Boolean(Rc::ptr_eq(&x, &y))),
+            (Value::Custom(c), rhs) => c.eval_eq(rhs, refs),
             (Value::Null, Value::Null) => Ok(Value::Boolean(true)),
             _ => Ok(Value::Boolean(false)),
         }
     }
 
-    pub fn eval_not_eq(&self, rhs: &Value, _refs: BinaryOpRef) -> ExecResult<Value> {
+    pub fn eval_not_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x != *y)),
+            (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x != *y)),
             (Value::Fn(_, x), Value::Fn(_, y)) => Ok(Value::Boolean(!Rc::ptr_eq(&x, &y))),
+            (Value::Custom(c), rhs) => c.eval_not_eq(rhs, refs),
             (Value::Null, Value::Null) => Ok(Value::Boolean(false)),
             _ => Ok(Value::Boolean(true)),
         }
@@ -292,6 +324,7 @@ impl Value {
     pub fn eval_and(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x && *y)),
+            (Value::Custom(c), rhs) => c.eval_and(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "and",
                 left_type: this.get_type_name(),
@@ -304,6 +337,7 @@ impl Value {
     pub fn eval_or(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x || *y)),
+            (Value::Custom(c), rhs) => c.eval_or(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "or",
                 left_type: this.get_type_name(),
@@ -316,6 +350,7 @@ impl Value {
     pub fn eval_xor(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x ^ *y)),
+            (Value::Custom(c), rhs) => c.eval_xor(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "xor",
                 left_type: this.get_type_name(),
@@ -324,12 +359,43 @@ impl Value {
             }),
         }
     }
+
+    pub fn eval_range(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+        match (self, rhs) {
+            (Value::Number(x), Value::Number(y)) => Ok(Value::Range(*x, *y)),
+            (Value::Custom(c), rhs) => c.eval_range(rhs, refs),
+            (this, rhs) => Err(ExecError::BinaryOp {
+                op: "range",
+                left_type: this.get_type_name(),
+                right_type: rhs.get_type_name(),
+                refs,
+            }),
+        }
+    }
+
+    pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<dyn Iterator<Item = Value>>> {
+        match self {
+            Value::Range(x, y) => Ok(Box::new((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
+            Value::String(s) => Ok(Box::new(s.chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
+            Value::Custom(c) => c.eval_iter(r),
+            _ => Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name())))),
+        }
+    }
 }
 
 impl PartialEq<f64> for Value {
     fn eq(&self, other: &f64) -> bool {
         match self {
             Value::Number(x) => x.eq(other),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<i64> for Value {
+    fn eq(&self, other: &i64) -> bool {
+        match self {
+            Value::Number(x) => x.eq(&(*other as f64)),
             _ => false,
         }
     }
@@ -398,5 +464,11 @@ impl<'a> From<&'a str> for Value {
 impl From<String> for Value {
     fn from(other: String) -> Self {
         Value::String(other)
+    }
+}
+
+impl From<Range<i64>> for Value {
+    fn from(other: Range<i64>) -> Self {
+        Value::Range(other.start as f64, other.end as f64)
     }
 }
