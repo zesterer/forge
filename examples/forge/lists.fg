@@ -12,6 +12,11 @@ for item in basket {
     print item;
 }
 
+print "Basket items, indexed another way";
+for i in 0..5 {
+	print basket[i];
+}
+
 # Now for some serious inception stuff: functions inside lists inside lists inside lists!
 var funcs = [
 	[
