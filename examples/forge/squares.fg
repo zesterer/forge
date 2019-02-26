@@ -8,7 +8,7 @@ var n = input "How many squares? ";
 # Create a list of squares
 var squares = [];
 for x in 1..n + 1 {
-	squares = squares + square(x);
+	squares += square(x);
 }
 
 # Iterate and print squares

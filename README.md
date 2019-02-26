@@ -18,7 +18,7 @@ var n = input "How many squares? ";
 # Create a list of squares
 var squares = [];
 for x in 1..n + 1 {
-	squares = squares + square(x);
+	squares += square(x);
 }
 
 # Iterate and print squares
@@ -62,6 +62,7 @@ $ forge my_script.fg
 - [x] Logical operators *`and`, `or`, `xor`, `==`, `!=`, `!`, `<`, `<=`, `>`, `>=`*
 - [x] `if`/`else` statements
 - [x] `while` and `for` statements
+- [x] Assignment operators *`=`, `+=`, `-=`, `*=`, `/=`, `%=`*
 - [x] Scoped variable declaration
 - [x] Function objects
 - [x] Function calling
@@ -72,7 +73,6 @@ $ forge my_script.fg
 - [x] Rust-to-Forge iterators
 - [x] Lists
 - [x] `clone` and `mirror` operators
-- [ ] Increment, decrement, and similar operators
 - [ ] Lvalues vs rvalues
 - [ ] Structures
 - [ ] Enums
