@@ -183,6 +183,34 @@ impl Value {
         }
     }
 
+    pub fn eval_clone(&self, refs: UnaryOpRef) -> ExecResult<Value> {
+        match self {
+            Value::Number(x) => Ok(Value::Number(*x)),
+            Value::String(s) => Ok(Value::String(s.clone())),
+            Value::Char(c) => Ok(Value::Char(*c)),
+            Value::Boolean(b) => Ok(Value::Boolean(*b)),
+            Value::Range(x, y) => Ok(Value::Range(*x, *y)),
+            Value::Fn(s, f) => Ok(Value::Fn(s.clone(), f.clone())),
+            Value::List(l) => Ok(Value::List(Rc::new(l.as_ref().clone()))),
+            Value::Custom(c) => c.eval_clone(refs),
+            Value::Null => Ok(Value::Null),
+        }
+    }
+
+    pub fn eval_mirror(&self, refs: UnaryOpRef) -> ExecResult<Value> {
+        match self {
+            Value::Number(x) => Ok(Value::Number(*x)),
+            Value::String(s) => Ok(Value::String(s.clone())),
+            Value::Char(c) => Ok(Value::Char(*c)),
+            Value::Boolean(b) => Ok(Value::Boolean(*b)),
+            Value::Range(x, y) => Ok(Value::Range(*x, *y)),
+            Value::Fn(s, f) => Ok(Value::Fn(s.clone(), f.clone())),
+            Value::List(l) => Ok(Value::List(Rc::new(l.as_ref().iter().map(|i| i.eval_mirror(refs)).collect::<Result<_, _>>()?))),
+            Value::Custom(c) => c.eval_mirror(refs),
+            Value::Null => Ok(Value::Null),
+        }
+    }
+
     pub fn eval_mul(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x * *y)),

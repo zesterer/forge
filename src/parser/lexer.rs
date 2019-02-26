@@ -47,6 +47,7 @@ pub enum Lexeme {
     Var,
     Print, Input,
     Clone,
+    Mirror,
 
     // Misc
     Reserved,
@@ -111,6 +112,7 @@ impl fmt::Display for Lexeme {
             Lexeme::Print => write!(f, "print"),
             Lexeme::Input => write!(f, "input"),
             Lexeme::Clone => write!(f, "clone"),
+            Lexeme::Mirror => write!(f, "mirror"),
 
             Lexeme::Reserved => write!(f, "<reserved>"),
             Lexeme::Eof => write!(f, "EOF"),
@@ -308,6 +310,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     "print" => Lexeme::Print,
                     "input" => Lexeme::Input,
                     "clone" => Lexeme::Clone,
+                    "mirror" => Lexeme::Mirror,
                     "true" => Lexeme::True,
                     "false" => Lexeme::False,
                     "null" => Lexeme::Null,

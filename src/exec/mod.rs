@@ -182,13 +182,13 @@ impl Io for DefaultIo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct UnaryOpRef {
     op: SrcRef,
     expr: SrcRef,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct BinaryOpRef {
     op: SrcRef,
     left: SrcRef,
@@ -223,6 +223,22 @@ pub trait Obj: fmt::Debug + 'static {
     fn eval_neg(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         Err(ExecError::UnaryOp {
             op: "neg",
+            expr_type: self.get_type_name(),
+            refs,
+        })
+    }
+
+    fn eval_clone(&self, refs: UnaryOpRef) -> ExecResult<Value> {
+        Err(ExecError::UnaryOp {
+            op: "clone",
+            expr_type: self.get_type_name(),
+            refs,
+        })
+    }
+
+    fn eval_mirror(&self, refs: UnaryOpRef) -> ExecResult<Value> {
+        Err(ExecError::UnaryOp {
+            op: "mirror",
             expr_type: self.get_type_name(),
             refs,
         })
@@ -398,6 +414,7 @@ pub trait Scope {
                 }
                 Ok(Value::List(Rc::new(list_items)))
             },
+
             Expr::UnaryNot(r, expr) =>
                 self.eval_expr(&expr.0, io, src)?.eval_not(UnaryOpRef { op: *r, expr: expr.1 }).map_err(src_map),
             Expr::UnaryNeg(r, expr) =>
@@ -417,6 +434,11 @@ pub trait Scope {
                     .map_err(|_| ExecError::At(*r, Box::new(ExecError::CouldNotParse(input))))
                     .map_err(src_map)
             },
+            Expr::UnaryClone(r, expr) =>
+                self.eval_expr(&expr.0, io, src)?.eval_clone(UnaryOpRef { op: *r, expr: expr.1 }).map_err(src_map),
+            Expr::UnaryMirror(r, expr) =>
+                self.eval_expr(&expr.0, io, src)?.eval_mirror(UnaryOpRef { op: *r, expr: expr.1 }).map_err(src_map),
+
             Expr::BinaryMul(r, left, right) =>
                 self.eval_expr(&left.0, io, src)?.eval_mul(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryDiv(r, left, right) =>

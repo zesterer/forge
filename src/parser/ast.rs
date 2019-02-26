@@ -13,11 +13,16 @@ pub enum Expr {
     LiteralNull,
     Ident(Node<String>),
     List(Node<Vec<Node<Expr>>>),
-    DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
+
     Call(SrcRef, Box<Node<Expr>>, Node<Vec<Node<Expr>>>),
+    DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
+
     UnaryNot(SrcRef, Box<Node<Expr>>),
     UnaryNeg(SrcRef, Box<Node<Expr>>),
     UnaryInput(SrcRef, Box<Node<Expr>>),
+    UnaryClone(SrcRef, Box<Node<Expr>>),
+    UnaryMirror(SrcRef, Box<Node<Expr>>),
+
     BinaryMul(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryDiv(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryMod(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
@@ -84,10 +89,6 @@ impl Expr {
                     item.0.print_debug(depth + 1);
                 }
             },
-            Expr::DotAccess(_, expr, s) => {
-                println!("{}Dot accessor '{}'", Spaces(depth), s.0);
-                expr.0.print_debug(depth + 1);
-            },
             Expr::Call(_, expr, params) => {
                 println!("{}Call", Spaces(depth));
                 expr.0.print_debug(depth + 1);
@@ -95,6 +96,10 @@ impl Expr {
                     println!("{}Parameter", Spaces(depth + 1));
                     param.0.print_debug(depth + 1);
                 }
+            },
+            Expr::DotAccess(_, expr, s) => {
+                println!("{}Dot accessor '{}'", Spaces(depth), s.0);
+                expr.0.print_debug(depth + 1);
             },
             Expr::UnaryNot(_, expr) => {
                 println!("{}Unary not", Spaces(depth));
@@ -106,6 +111,14 @@ impl Expr {
             },
             Expr::UnaryInput(_, expr) => {
                 println!("{}Unary input", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::UnaryClone(_, expr) => {
+                println!("{}Unary clone", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::UnaryMirror(_, expr) => {
+                println!("{}Unary mirror", Spaces(depth));
                 expr.0.print_debug(depth + 1);
             },
             Expr::BinaryMul(_, left, right) => {

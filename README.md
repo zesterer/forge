@@ -71,6 +71,7 @@ $ forge my_script.fg
 - [x] Iterators
 - [x] Rust-to-Forge iterators
 - [x] Lists
+- [x] `clone` and `mirror` operators
 - [ ] Increment, decrement, and similar operators
 - [ ] Lvalues vs rvalues
 - [ ] Objects
