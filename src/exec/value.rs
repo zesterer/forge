@@ -3,6 +3,7 @@ use std::{
     cmp::PartialEq,
     fmt,
     ops::Range,
+    convert::TryFrom,
 };
 use crate::{
     parser::{
@@ -68,6 +69,20 @@ impl<V: Into<Value>, F: Fn() -> V + fmt::Debug + 'static> Obj for F {
         }
     }
 }
+
+/* TODO: Resolve conflicting impl
+impl<V: Into<Value>, F: Fn(Value) -> V + fmt::Debug + 'static> Obj for F {
+    fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, _caller: &mut dyn Scope, _io: &mut dyn Io, src: &Rc<String>, _r_caller: SrcRef) -> ExecResult<Value> {
+        if params.0.len() != 1 {
+            Err(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
+                None, 0, params.0.len()
+            )))).map_err(|err| ExecError::WithSrc(src.clone(), Box::new(err)))
+        } else {
+            Ok(self.call((self.params.0[0]))
+        }
+    }
+}
+*/
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {

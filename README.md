@@ -58,10 +58,10 @@ $ forge my_script.fg
 ## Roadmap
 
 - [x] Numbers, strings and booleans
-- [x] Arithmetic operators
-- [x] Logical operators
-- [x] If-else statements
-- [x] While statements
+- [x] Arithmetic operators *`+`, `-`, `*`, `/`, `%`*
+- [x] Logical operators *`and`, `or`, `xor`, `==`, `!=`, `!`, `<`, `<=`, `>`, `>=`*
+- [x] `if`/`else` statements
+- [x] `while` and `for` statements
 - [x] Scoped variable declaration
 - [x] Function objects
 - [x] Function calling
@@ -74,6 +74,8 @@ $ forge my_script.fg
 - [x] `clone` and `mirror` operators
 - [ ] Increment, decrement, and similar operators
 - [ ] Lvalues vs rvalues
+- [ ] Structures
+- [ ] Enums
 - [ ] Objects
 - [ ] Modules as objects
 - [ ] Scoped constants
