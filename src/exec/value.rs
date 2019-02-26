@@ -3,7 +3,6 @@ use std::{
     cmp::PartialEq,
     fmt,
     ops::Range,
-    cell::RefCell,
 };
 use crate::{
     parser::{
@@ -37,7 +36,7 @@ pub enum Value {
     Boolean(bool),
     Range(f64, f64),
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
-    Iter(Rc<RefCell<dyn ForgeIter>>),
+    List(Rc<Vec<Value>>),
     Custom(Rc<dyn Obj>),
     Null,
 }
@@ -51,14 +50,14 @@ impl fmt::Debug for Value {
             Value::Boolean(b) => writeln!(f, "Boolean({:?})", b),
             Value::Range(x, y) => writeln!(f, "Range({:?}, {:?})", x, y),
             Value::Fn(s, func) => writeln!(f, "Fn({:?}, {:?})", s, func),
-            Value::Iter(i) => writeln!(f, "Iter({:?})", i),
+            Value::List(l) => writeln!(f, "List({:?})", l),
             Value::Custom(c) => writeln!(f, "Custom({:?})", &c as *const _),
             Value::Null => writeln!(f, "Null"),
         }
     }
 }
 
-impl<V: Into<Value>, F: Fn() -> V + 'static> Obj for F {
+impl<V: Into<Value>, F: Fn() -> V + fmt::Debug + 'static> Obj for F {
     fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, _caller: &mut dyn Scope, _io: &mut dyn Io, src: &Rc<String>, _r_caller: SrcRef) -> ExecResult<Value> {
         if params.0.len() != 0 {
             Err(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
@@ -79,6 +78,7 @@ impl PartialEq for Value {
             (Value::Boolean(x), Value::Boolean(y)) => x.eq(y),
             (Value::Range(x0, x1), Value::Range(y0, y1)) => (x0, x1).eq(&(y0, y1)),
             (Value::Fn(_, x), Value::Fn(_, y)) => Rc::ptr_eq(&x, &y),
+            (Value::List(x), Value::List(y)) => Rc::ptr_eq(&x, &y),
             (Value::Null, Value::Null) => true,
             _ => false,
         }
@@ -86,12 +86,6 @@ impl PartialEq for Value {
 }
 
 impl Value {
-    pub fn iter<T: Into<Value>, I: IntoIterator<Item=T> + 'static>(i: I) -> Self
-        where I::IntoIter: fmt::Debug
-    {
-        Value::Iter(Rc::new(RefCell::new(i.into_iter().map(|v| v.into()))))
-    }
-
     pub fn as_custom(self) -> Option<Rc<dyn Obj>> {
         match self {
             Value::Custom(rc) => Some(rc.clone()),
@@ -126,7 +120,7 @@ impl Value {
             Value::Boolean(_) => String::from("bool"),
             Value::Range(_, _) => String::from("range"),
             Value::Fn(_, _) => String::from("function"),
-            Value::Iter(_) => String::from("iterator"),
+            Value::List(_) => String::from("list"),
             Value::Custom(c) => c.get_type_name(),
             Value::Null => String::from("null"),
         }
@@ -140,7 +134,18 @@ impl Value {
             Value::Boolean(b) => format!("{}", b),
             Value::Range(x, y) => format!("{}..{}", x, y),
             Value::Fn(_, _) => String::from("<function>"),
-            Value::Iter(_) => String::from("<iterator>"),
+            Value::List(l) => {
+                let mut s = String::from("[");
+                if let Some(i) = l.get(0) {
+                    s += &i.get_display_text()?;
+                }
+                for item in l.get(1..).unwrap_or(&[]) {
+                    s += ", ";
+                    s += &item.get_display_text()?;
+                }
+                s.push(']');
+                s
+            },
             Value::Custom(c) => c.get_display_text()?,
             Value::Null => String::from("<null>"),
         })
@@ -225,6 +230,16 @@ impl Value {
             (Value::String(x), Value::Number(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
             (Value::String(x), Value::Boolean(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
             (Value::String(x), Value::Null) => Ok(Value::String(x.clone() + &"null")),
+            (Value::List(x), Value::List(y)) => {
+                let mut v = x.as_ref().clone();
+                v.append(&mut y.as_ref().clone());
+                Ok(Value::List(Rc::new(v)))
+            },
+            (Value::List(x), rhs) => {
+                let mut v = x.as_ref().clone();
+                v.push(rhs.clone());
+                Ok(Value::List(Rc::new(v)))
+            },
             (Value::Custom(c), rhs) => c.eval_add(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
                 op: "add",
@@ -386,11 +401,11 @@ impl Value {
         }
     }
 
-    pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Value> {
+    pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<ForgeIter>> {
         match self {
-            Value::Range(x, y) => Ok(Value::iter((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
-            Value::String(s) => Ok(Value::iter(s.chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
-            Value::Iter(i) => Ok(Value::Iter(i.clone())),
+            Value::Range(x, y) => Ok(Box::new((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
+            Value::String(s) => Ok(Box::new(s.chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
+            Value::List(l) => Ok(Box::new(l.as_ref().clone().into_iter())),
             Value::Custom(c) => c.eval_iter(r),
             _ => Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name())))),
         }
@@ -484,5 +499,11 @@ impl From<String> for Value {
 impl From<Range<i64>> for Value {
     fn from(other: Range<i64>) -> Self {
         Value::Range(other.start as f64, other.end as f64)
+    }
+}
+
+impl<T: Into<Value>> From<Vec<T>> for Value {
+    fn from(other: Vec<T>) -> Self {
+        Value::List(Rc::new(other.into_iter().map(|i| i.into()).collect()))
     }
 }

@@ -1,18 +1,10 @@
-use forge::{
-    Engine,
-    Value,
-};
+use forge::Engine;
 
 fn main() {
     let mut engine = Engine::build()
         .with_global("name", "Alex")
         .with_global("bag_weight", 46)
-        .with_global("groceries", Value::iter(vec![
-            (|| println!("An apple")) as fn(),
-            || println!("A pear"),
-            || println!("A carton of milk"),
-            || println!("A box of eggs"),
-        ]))
+        .with_global("groceries", vec!["An apple", "A pear", "A carton of milk", "A box of eggs"])
         .with_global("finished", false)
         .finish();
 
@@ -21,8 +13,8 @@ fn main() {
         print "My bag weighs " + bag_weight + " Kg";
 
         print "In my bag I have:";
-        for item_func in groceries {
-            item_func();
+        for item in groceries {
+            print item;
         }
 
         if finished {

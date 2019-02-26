@@ -4,7 +4,10 @@ mod value;
 
 // Reexports
 pub use self::{
-    value::Value,
+    value::{
+        Value,
+        ForgeIter,
+    },
     global_scope::GlobalScope,
 };
 
@@ -13,7 +16,6 @@ use std::{
     io::{self, prelude::*},
     rc::Rc,
     any::Any,
-    ops::DerefMut,
 };
 use crate::{
     output,
@@ -193,7 +195,7 @@ pub struct BinaryOpRef {
     right: SrcRef,
 }
 
-pub trait Obj: 'static {
+pub trait Obj: fmt::Debug + 'static {
     fn get_type_name(&self) -> String {
         format!("{:?}", self.type_id())
     }
@@ -361,7 +363,7 @@ pub trait Obj: 'static {
         })
     }
 
-    fn eval_iter(&self, r: SrcRef) -> ExecResult<Value> {
+    fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<ForgeIter>> {
         Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name()))))
     }
 }
@@ -388,6 +390,13 @@ pub trait Scope {
             Expr::DotAccess(_, _, _) => unimplemented!(),
             Expr::Call(_r, expr, params) => {
                 self.eval_expr(&expr.0, io, src)?.call(params, self.as_scope_mut(), io, src, expr.1)
+            },
+            Expr::List(items) => {
+                let mut list_items = vec![];
+                for item in &items.0 {
+                    list_items.push(self.eval_expr(&item.0, io, src)?);
+                }
+                Ok(Value::List(Rc::new(list_items)))
             },
             Expr::UnaryNot(r, expr) =>
                 self.eval_expr(&expr.0, io, src)?.eval_not(UnaryOpRef { op: *r, expr: expr.1 }).map_err(src_map),
@@ -480,19 +489,15 @@ pub trait Scope {
                 Ok(None)
             },
             Stmt::For(ident, expr, block) => {
-                // TODO: How else to make sure we have exclusive access?
-                if let Value::Iter(iter) = self.eval_expr(&expr.0, io, src)?.eval_iter(expr.1)? {
-                    for item in iter.borrow_mut().deref_mut() {
-                        let mut scope = BlockScope::new(self.as_scope_mut());
-                        scope.declare_var(ident.0.clone(), item);
-                        if let Some(val) = scope.eval_block(&block.0, io, src)? {
-                            return Ok(Some(val));
-                        }
+                let iter = self.eval_expr(&expr.0, io, src)?.eval_iter(expr.1)?;
+                for item in iter {
+                    let mut scope = BlockScope::new(self.as_scope_mut());
+                    scope.declare_var(ident.0.clone(), item);
+                    if let Some(val) = scope.eval_block(&block.0, io, src)? {
+                        return Ok(Some(val));
                     }
-                    Ok(None)
-                } else {
-                    Err(ExecError::At(expr.1, Box::new(ExecError::NotIterator)))
                 }
+                Ok(None)
             },
             Stmt::Decl(ident, expr) => {
                 let val = self.eval_expr(&expr.0, io, src)?;

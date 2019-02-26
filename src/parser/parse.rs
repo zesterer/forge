@@ -110,6 +110,12 @@ impl<'a> ParseCtx<'a> {
                 *self = this;
                 return Ok((fn_expr, Some(err)));
             },
+            Token(Lexeme::LBrack, _r) => {
+                let mut this = self.clone();
+                let (list_expr, err) = this.read_list_expr()?;
+                *self = this;
+                return Ok((list_expr, Some(err)));
+            },
             Token(l, r) => return Err(expected(Item::Primary, Item::Lexeme(l), r)),
         };
         self.advance();
@@ -397,6 +403,26 @@ impl<'a> ParseCtx<'a> {
 
         let r_union = args.1.union(&r_start).union(&r_middle).union(&block.1);
         Ok((Node(Expr::Fn(self.code.clone(), Rc::new((Node(args.0, args.1.union(&r_start).union(&r_middle)), block))), r_union), max_err.while_parsing(ELEMENT)))
+    }
+
+    fn read_list_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        const ELEMENT: &'static str = "list";
+
+        let r_start = match self.peek() {
+            Token(Lexeme::LBrack, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::LBrack), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (items, max_err) = self.read_paramlist().map_err(|err| err.while_parsing(ELEMENT))?;
+
+        match self.peek() {
+            Token(Lexeme::RBrack, r) => {
+                self.advance();
+                let r_union = items.1.union(&r_start).union(&r);
+                Ok((Node(Expr::List(items), r_union), max_err.while_parsing(ELEMENT)))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RBrack), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+        }
     }
 
     fn read_paramlist(&mut self) -> ParseResult<(Node<Vec<Node<Expr>>>, ParseError)> {

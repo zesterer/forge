@@ -1,0 +1,33 @@
+# This example is quite simple
+var basket = [
+    "apple",
+    "orange",
+    "pear",
+    "ridiculously over-priced bottle of tap water yay capitalism",
+    "loaf of bread",
+];
+
+print "Basket items:";
+for item in basket {
+    print item;
+}
+
+# Now for some serious inception stuff: functions inside lists inside lists inside lists!
+var funcs = [
+	[
+		[|| { print "0-0-0"; }, || { print "0-0-1"; }],
+		[|| { print "0-1-0"; }, || { print "0-1-1"; }],
+	],
+	[
+		[|| { print "1-0-0"; }, || { print "1-0-1"; }],
+		[|| { print "1-1-0"; }, || { print "1-1-1"; }],
+	],
+];
+
+for fs in funcs {
+	for fs in fs {
+		for f in fs {
+			f();
+		}
+	}
+}

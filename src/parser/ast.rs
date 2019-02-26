@@ -12,6 +12,7 @@ pub enum Expr {
     LiteralBoolean(bool),
     LiteralNull,
     Ident(Node<String>),
+    List(Node<Vec<Node<Expr>>>),
     DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
     Call(SrcRef, Box<Node<Expr>>, Node<Vec<Node<Expr>>>),
     UnaryNot(SrcRef, Box<Node<Expr>>),
@@ -76,6 +77,13 @@ impl Expr {
             Expr::LiteralBoolean(b) => println!("{}Boolean literal '{}'", Spaces(depth), b),
             Expr::LiteralNull => println!("{}Null literal", Spaces(depth)),
             Expr::Ident(s) => println!("{}Identifier '{}'", Spaces(depth), s.0),
+            Expr::List(items) => {
+                println!("{}List", Spaces(depth));
+                for item in &items.0 {
+                    println!("{}Item", Spaces(depth + 1));
+                    item.0.print_debug(depth + 1);
+                }
+            },
             Expr::DotAccess(_, expr, s) => {
                 println!("{}Dot accessor '{}'", Spaces(depth), s.0);
                 expr.0.print_debug(depth + 1);

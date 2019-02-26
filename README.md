@@ -15,9 +15,15 @@ var square = |x| {
 
 var n = input "How many squares? ";
 
+# Create a list of squares
+var squares = [];
+for x in 1..n + 1 {
+	squares = squares + square(x);
+}
+
 # Iterate and print squares
-for i in 0..n {
-	print "square(" + (i + 1) + ") = " + square(i + 1);
+for square in squares {
+	print square;
 }
 ```
 
@@ -64,6 +70,7 @@ $ forge my_script.fg
 - [x] Rust callbacks *Only Rust closures with no arguments are currently supported*
 - [x] Iterators
 - [x] Rust-to-Forge iterators
+- [x] Lists
 - [ ] Increment, decrement, and similar operators
 - [ ] Lvalues vs rvalues
 - [ ] Objects
