@@ -19,11 +19,9 @@ fn main() {
 
     // Display the new alias we created previously
     println!(
-        "my_basket_ref = {:?}",
+        "my_basket_ref = {}",
         engine
             .take("my_basket_ref")
-            .unwrap()
-            .as_custom()
             .unwrap(),
     );
 }

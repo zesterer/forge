@@ -3,7 +3,6 @@ use std::{
     cmp::PartialEq,
     fmt,
     ops::Range,
-    convert::TryFrom,
 };
 use crate::{
     parser::{
@@ -58,7 +57,7 @@ impl fmt::Debug for Value {
     }
 }
 
-impl<V: Into<Value>, F: Fn() -> V + fmt::Debug + 'static> Obj for F {
+impl<V: Into<Value>, F: Fn() -> V + 'static> Obj for F {
     fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, _caller: &mut dyn Scope, _io: &mut dyn Io, src: &Rc<String>, _r_caller: SrcRef) -> ExecResult<Value> {
         if params.0.len() != 0 {
             Err(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
@@ -70,18 +69,31 @@ impl<V: Into<Value>, F: Fn() -> V + fmt::Debug + 'static> Obj for F {
     }
 }
 
-/* TODO: Resolve conflicting impl
-impl<V: Into<Value>, F: Fn(Value) -> V + fmt::Debug + 'static> Obj for F {
-    fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, _caller: &mut dyn Scope, _io: &mut dyn Io, src: &Rc<String>, _r_caller: SrcRef) -> ExecResult<Value> {
-        if params.0.len() != 1 {
-            Err(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
-                None, 0, params.0.len()
-            )))).map_err(|err| ExecError::WithSrc(src.clone(), Box::new(err)))
-        } else {
-            Ok(self.call((self.params.0[0]))
-        }
-    }
+/* TODO: Fix this
+macro_rules! expand_args {
+    ($params:expr, $caller:expr, $io:expr, $src:expr, 1) => ($caller.eval_expr(&$params.0[0].0, $io, $src)?);
+    ($params:expr, $caller:expr, $io:expr, $src:expr, $n:expr, $left:tt) => (
+        expand_args!($params, $caller, $io, $src, $left), $caller.eval_expr(&$params.0[$n].0, $io, $src)?
+    );
 }
+
+macro_rules! impl_obj_for_fn {
+    ($n:expr, $x:expr) => (
+        impl<V: Into<Value> + 'static> Obj for fn(Value) -> V {
+            fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, caller: &mut dyn Scope, io: &mut dyn Io, src: &Rc<String>, _r_caller: SrcRef) -> ExecResult<Value> {
+                if params.0.len() != $n {
+                    Err(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
+                        None, 0, params.0.len()
+                    )))).map_err(|err| ExecError::WithSrc(src.clone(), Box::new(err)))
+                } else {
+                    Ok(self(expand_args!(params, caller, io, src, $n, $x)).into())
+                }
+            }
+        }
+    );
+}
+impl_obj_for_fn!(1);
+impl_obj_for_fn!(1, 2);
 */
 
 impl PartialEq for Value {
@@ -108,7 +120,7 @@ impl Value {
         }
     }
 
-    pub fn call(&self, params: &Node<Vec<Node<Expr>>>, caller: &mut dyn Scope, io: &mut dyn Io, src: &Rc<String>, r_caller: SrcRef) -> ExecResult<Value> {
+    pub fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, caller: &mut dyn Scope, io: &mut dyn Io, src: &Rc<String>, r_caller: SrcRef) -> ExecResult<Value> {
         match self {
             Value::Fn(code, f) => if ((f.0).0).0.len() != params.0.len() {
                 return Err(ExecError::WithPrevSrc(code.clone(), Box::new(ExecError::At(params.1, Box::new(ExecError::WrongArgNum(
@@ -252,12 +264,12 @@ impl Value {
         }
     }
 
-    pub fn eval_mod(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    pub fn eval_rem(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x % *y)),
-            (Value::Custom(c), rhs) => c.eval_mod(rhs, refs),
+            (Value::Custom(c), rhs) => c.eval_rem(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
-                op: "mod",
+                op: "rem",
                 left_type: this.get_type_name(),
                 right_type: rhs.get_type_name(),
                 refs,

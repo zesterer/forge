@@ -12,6 +12,7 @@ use super::{
     ast::{
         Node,
         Expr,
+        LVal,
         Stmt,
         Block,
         Args,
@@ -24,6 +25,7 @@ pub enum Item {
     Ident,
     Primary,
     Stmt,
+    Assignment,
     End,
 }
 
@@ -37,6 +39,7 @@ impl fmt::Display for Item {
             Item::Ident => write!(f, "identifier"),
             Item::Primary => write!(f, "primary expression"),
             Item::Stmt => write!(f, "statement"),
+            Item::Assignment => write!(f, "assignment"),
             Item::End => write!(f, "end of input"),
         }
     }
@@ -200,7 +203,7 @@ impl<'a> ParseCtx<'a> {
                     self.advance();
                     let (operand, err) = self.read_unary()?;
                     let r_union = r.union(&expr.1).union(&operand.1);
-                    expr = Node(Expr::BinaryMod(r, Box::new(expr), Box::new(operand)), r_union);
+                    expr = Node(Expr::BinaryRem(r, Box::new(expr), Box::new(operand)), r_union);
                     max_err = err.max(max_err);
                 },
                 Token(_l, _r) => return Ok((expr, max_err)),
@@ -366,8 +369,74 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
+    fn read_assignment(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        let mut this = self.clone();
+        let (lvalue, max_err) = match this.read_lvalue() {
+            Ok((lvalue, err)) => {
+                *self = this;
+                (lvalue, err)
+            },
+            Err(err) => return Err(err),
+        };
+
+        match self.peek() {
+            Token(Lexeme::Assign, r) => {
+                self.advance();
+                let (operand, err) = self.read_logical()?;
+                let r_union = r.union(&lvalue.1).union(&operand.1);
+                Ok((Node(Expr::BinaryAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
+            },
+            Token(Lexeme::PlusEq, r) => {
+                self.advance();
+                let (operand, err) = self.read_logical()?;
+                let r_union = r.union(&lvalue.1).union(&operand.1);
+                Ok((Node(Expr::BinaryAddAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
+            },
+            Token(Lexeme::MinusEq, r) => {
+                self.advance();
+                let (operand, err) = self.read_logical()?;
+                let r_union = r.union(&lvalue.1).union(&operand.1);
+                Ok((Node(Expr::BinarySubAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
+            },
+            Token(Lexeme::StarEq, r) => {
+                self.advance();
+                let (operand, err) = self.read_logical()?;
+                let r_union = r.union(&lvalue.1).union(&operand.1);
+                Ok((Node(Expr::BinaryMulAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
+            },
+            Token(Lexeme::SlashEq, r) => {
+                self.advance();
+                let (operand, err) = self.read_logical()?;
+                let r_union = r.union(&lvalue.1).union(&operand.1);
+                Ok((Node(Expr::BinaryDivAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
+            },
+            Token(Lexeme::PercentEq, r) => {
+                self.advance();
+                let (operand, err) = self.read_logical()?;
+                let r_union = r.union(&lvalue.1).union(&operand.1);
+                Ok((Node(Expr::BinaryRemAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
+            },
+            Token(l, r) => Err(expected(Item::Assignment, Item::Lexeme(l), r).max(max_err)),
+        }
+    }
+
+    fn read_lvalue(&mut self) -> ParseResult<(Node<LVal>, ParseError)> {
+        self.read_ident()
+            .map(|i| (Node(LVal::Local(Node(i.0, i.1)), i.1), ParseError::Phoney))
+            .map_err(|err| err.while_parsing("lvalue"))
+    }
+
     fn read_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
-        self.read_logical().map_err(|err| err.while_parsing("expression"))
+        const ELEMENT: &'static str = "expression";
+
+        let mut this = self.clone();
+        match this.read_assignment() {
+            Ok((expr, err)) => {
+                *self = this;
+                Ok((expr, err))
+            },
+            Err(err) => self.read_logical().map_err(|err| err.while_parsing(ELEMENT)).map_err(|e| e.max(err)),
+        }
     }
 
     fn read_paren_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
@@ -657,31 +726,6 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    fn read_assign_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
-        const ELEMENT: &'static str = "variable assignment";
-
-        let (ident, r_ident) = match self.peek() {
-            Token(Lexeme::Ident(s), r) => { self.advance(); (s.clone(), r) },
-            Token(l, r) => return Err(expected(Item::Ident, Item::Lexeme(l), r).while_parsing(ELEMENT)),
-        };
-
-        let r_assign = match self.peek() {
-            Token(Lexeme::Assign, r) => { self.advance(); r },
-            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Assign), Item::Lexeme(l), r).while_parsing(ELEMENT)),
-        };
-
-        let (expr, max_err) = self.read_expr().map_err(|err| err.while_parsing(ELEMENT))?;
-
-        match self.peek() {
-            Token(Lexeme::Semicolon, r) => {
-                self.advance();
-                let r_union = expr.1.union(&r_ident).union(&r_assign).union(&r);
-                Ok((Node(Stmt::Assign(Node(ident, r_ident), expr), r_union), max_err))
-            },
-            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
-        }
-    }
-
     fn read_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {
         let mut this = self.clone();
         let max_err = match this.read_expr_stmt() {
@@ -730,15 +774,6 @@ impl<'a> ParseCtx<'a> {
 
         let mut this = self.clone();
         let max_err = match this.read_decl_stmt() {
-            Ok((stmt, err)) => {
-                *self = this;
-                return Ok((stmt, err.max(max_err)))
-            },
-            Err(err) => err.max(max_err),
-        };
-
-        let mut this = self.clone();
-        let max_err = match this.read_assign_stmt() {
             Ok((stmt, err)) => {
                 *self = this;
                 return Ok((stmt, err.max(max_err)))

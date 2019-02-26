@@ -25,7 +25,7 @@ pub enum Expr {
 
     BinaryMul(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryDiv(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
-    BinaryMod(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryRem(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryAdd(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinarySub(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryGreater(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
@@ -38,7 +38,20 @@ pub enum Expr {
     BinaryOr(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryXor(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryRange(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+
+    BinaryAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
+    BinaryAddAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
+    BinarySubAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
+    BinaryMulAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
+    BinaryDivAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
+    BinaryRemAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
+
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
+}
+
+#[derive(Debug)]
+pub enum LVal {
+    Local(Node<String>),
 }
 
 #[derive(Debug)]
@@ -56,7 +69,6 @@ pub enum Stmt {
     While(Node<Expr>, Node<Block>),
     For(Node<String>, Node<Expr>, Node<Block>),
     Decl(Node<String>, Node<Expr>),
-    Assign(Node<String>, Node<Expr>),
     Return(Node<Expr>),
 }
 
@@ -131,8 +143,8 @@ impl Expr {
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
-            Expr::BinaryMod(_, left, right) => {
-                println!("{}Binary mod", Spaces(depth));
+            Expr::BinaryRem(_, left, right) => {
+                println!("{}Binary rem", Spaces(depth));
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
@@ -196,11 +208,55 @@ impl Expr {
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },
+            Expr::BinaryAssign(_, target, expr) => {
+                println!("{}Binary assign", Spaces(depth));
+                target.0.print_debug(depth + 1);
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::BinaryAddAssign(_, target, expr) => {
+                println!("{}Binary add-assign", Spaces(depth));
+                target.0.print_debug(depth + 1);
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::BinarySubAssign(_, target, expr) => {
+                println!("{}Binary sub-assign", Spaces(depth));
+                target.0.print_debug(depth + 1);
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::BinaryMulAssign(_, target, expr) => {
+                println!("{}Binary add-assign", Spaces(depth));
+                target.0.print_debug(depth + 1);
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::BinaryDivAssign(_, target, expr) => {
+                println!("{}Binary div-assign", Spaces(depth));
+                target.0.print_debug(depth + 1);
+                expr.0.print_debug(depth + 1);
+            },
+            Expr::BinaryRemAssign(_, target, expr) => {
+                println!("{}Binary rem-assign", Spaces(depth));
+                target.0.print_debug(depth + 1);
+                expr.0.print_debug(depth + 1);
+            },
             Expr::Fn(_, rc) => {
                 println!("{}Function", Spaces(depth));
                 (rc.0).0.print_debug(depth + 1);
                 (rc.1).0.print_debug(depth + 1);
             },
+        }
+    }
+}
+
+impl LVal {
+    pub fn to_expr(self) -> Expr {
+        match self {
+            LVal::Local(i) => Expr::Ident(i),
+        }
+    }
+
+    pub fn print_debug(&self, depth: usize) {
+        match self {
+            LVal::Local(i) => println!("{}Local '{}'", Spaces(depth), i.0),
         }
     }
 }
@@ -239,10 +295,6 @@ impl Stmt {
             },
             Stmt::Decl(ident, expr) => {
                 println!("{}Declaration statement '{}'", Spaces(depth), ident.0);
-                expr.0.print_debug(depth + 1);
-            },
-            Stmt::Assign(ident, expr) => {
-                println!("{}Assignment statement '{}'", Spaces(depth), ident.0);
                 expr.0.print_debug(depth + 1);
             },
             Stmt::Return(expr) => {

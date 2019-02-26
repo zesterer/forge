@@ -23,6 +23,7 @@ use crate::{
         SrcRef,
         ast::{
             Expr,
+            LVal,
             Stmt,
             Block,
             Node,
@@ -195,7 +196,7 @@ pub struct BinaryOpRef {
     right: SrcRef,
 }
 
-pub trait Obj: fmt::Debug + 'static {
+pub trait Obj: 'static {
     fn get_type_name(&self) -> String {
         format!("{:?}", self.type_id())
     }
@@ -262,9 +263,9 @@ pub trait Obj: fmt::Debug + 'static {
         })
     }
 
-    fn eval_mod(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_rem(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
-            op: "mod",
+            op: "rem",
             left_type: self.get_type_name(),
             right_type: self.get_type_name(),
             refs,
@@ -405,7 +406,7 @@ pub trait Scope {
                 self.get_var(&name.0).map_err(|err| ExecError::At(name.1, Box::new(err))).map_err(src_map),
             Expr::DotAccess(_, _, _) => unimplemented!(),
             Expr::Call(_r, expr, params) => {
-                self.eval_expr(&expr.0, io, src)?.call(params, self.as_scope_mut(), io, src, expr.1)
+                self.eval_expr(&expr.0, io, src)?.eval_call(params, self.as_scope_mut(), io, src, expr.1)
             },
             Expr::List(items) => {
                 let mut list_items = vec![];
@@ -443,8 +444,8 @@ pub trait Scope {
                 self.eval_expr(&left.0, io, src)?.eval_mul(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryDiv(r, left, right) =>
                 self.eval_expr(&left.0, io, src)?.eval_div(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
-            Expr::BinaryMod(r, left, right) =>
-                self.eval_expr(&left.0, io, src)?.eval_mod(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
+            Expr::BinaryRem(r, left, right) =>
+                self.eval_expr(&left.0, io, src)?.eval_rem(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryAdd(r, left, right) =>
                 self.eval_expr(&left.0, io, src)?.eval_add(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinarySub(r, left, right) =>
@@ -469,6 +470,77 @@ pub trait Scope {
                 self.eval_expr(&left.0, io, src)?.eval_xor(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryRange(r, left, right) =>
                 self.eval_expr(&left.0, io, src)?.eval_range(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
+            Expr::BinaryAssign(_r, lvalue, expr) => match &lvalue.0 {
+                LVal::Local(ident) => {
+                    let val = self.eval_expr(&expr.0, io, src)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    self.assign_var(&ident.0, val)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    Ok(Value::Null)
+                },
+            },
+            Expr::BinaryAddAssign(r, lvalue, expr) => match &lvalue.0 {
+                LVal::Local(ident) => {
+                    let incr = self.eval_expr(&expr.0, io, src)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    let prev = self.get_var(&ident.0).map_err(|err| ExecError::At(ident.1, Box::new(err))).map_err(src_map)?;
+                    self.assign_var(&ident.0, prev.eval_add(&incr, BinaryOpRef { op: *r, left: lvalue.1, right: expr.1 }).map_err(src_map)?)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    Ok(Value::Null)
+                },
+            },
+            Expr::BinarySubAssign(r, lvalue, expr) => match &lvalue.0 {
+                LVal::Local(ident) => {
+                    let decr = self.eval_expr(&expr.0, io, src)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    let prev = self.get_var(&ident.0).map_err(|err| ExecError::At(ident.1, Box::new(err))).map_err(src_map)?;
+                    self.assign_var(&ident.0, prev.eval_sub(&decr, BinaryOpRef { op: *r, left: lvalue.1, right: expr.1 }).map_err(src_map)?)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    Ok(Value::Null)
+                },
+            },
+            Expr::BinaryMulAssign(r, lvalue, expr) => match &lvalue.0 {
+                LVal::Local(ident) => {
+                    let factor = self.eval_expr(&expr.0, io, src)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    let prev = self.get_var(&ident.0).map_err(|err| ExecError::At(ident.1, Box::new(err))).map_err(src_map)?;
+                    self.assign_var(&ident.0, prev.eval_mul(&factor, BinaryOpRef { op: *r, left: lvalue.1, right: expr.1 }).map_err(src_map)?)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    Ok(Value::Null)
+                },
+            },
+            Expr::BinaryDivAssign(r, lvalue, expr) => match &lvalue.0 {
+                LVal::Local(ident) => {
+                    let factor = self.eval_expr(&expr.0, io, src)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    let prev = self.get_var(&ident.0).map_err(|err| ExecError::At(ident.1, Box::new(err))).map_err(src_map)?;
+                    self.assign_var(&ident.0, prev.eval_div(&factor, BinaryOpRef { op: *r, left: lvalue.1, right: expr.1 }).map_err(src_map)?)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    Ok(Value::Null)
+                },
+            },
+            Expr::BinaryRemAssign(r, lvalue, expr) => match &lvalue.0 {
+                LVal::Local(ident) => {
+                    let divisor = self.eval_expr(&expr.0, io, src)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    let prev = self.get_var(&ident.0).map_err(|err| ExecError::At(ident.1, Box::new(err))).map_err(src_map)?;
+                    self.assign_var(&ident.0, prev.eval_rem(&divisor, BinaryOpRef { op: *r, left: lvalue.1, right: expr.1 }).map_err(src_map)?)
+                        .map_err(|err| ExecError::At(ident.1, Box::new(err)))
+                        .map_err(src_map)?;
+                    Ok(Value::Null)
+                },
+            },
             Expr::Fn(code, rc) =>
                 Ok(Value::Fn(code.clone(), rc.clone()))
         }
@@ -524,12 +596,6 @@ pub trait Scope {
             Stmt::Decl(ident, expr) => {
                 let val = self.eval_expr(&expr.0, io, src)?;
                 self.declare_var(ident.0.clone(), val);
-                Ok(None)
-            },
-            Stmt::Assign(ident, expr) => {
-                let val = self.eval_expr(&expr.0, io, src)?;
-                self.assign_var(&ident.0, val)
-                    .map_err(|err| ExecError::At(ident.1, Box::new(err)))?;
                 Ok(None)
             },
             Stmt::Return(expr) => {

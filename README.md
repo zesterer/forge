@@ -67,7 +67,7 @@ $ forge my_script.fg
 - [x] Function calling
 - [x] Rust-to-Forge object interface
 - [x] Rust-to-Forge type coercion
-- [x] Rust callbacks *Only Rust closures with no arguments are currently supported*
+- [x] Rust callbacks *Only Rust closures with no arguments or functions are currently supported*
 - [x] Iterators
 - [x] Rust-to-Forge iterators
 - [x] Lists
