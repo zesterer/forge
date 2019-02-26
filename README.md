@@ -72,6 +72,7 @@ $ forge my_script.fg
 - [x] Iterators
 - [x] Rust-to-Forge iterators
 - [x] Lists
+- [x] Indexing and ranges
 - [x] `clone` and `mirror` operators
 - [ ] Lvalues vs rvalues
 - [ ] Structures

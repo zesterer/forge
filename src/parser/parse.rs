@@ -128,18 +128,34 @@ impl<'a> ParseCtx<'a> {
     fn read_access(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let (mut expr, err) = self.read_primary()?;
 
-        let max_err = err.unwrap_or(ParseError::phoney());
+        let mut max_err = err.unwrap_or(ParseError::phoney());
 
         loop {
             let mut this = self.clone();
-            expr = match this.read_member() {
-                Ok((dot_r, Node(ident, r))) => {
+            match this.read_member() {
+                Ok((dot_r, Node(ident, r), err)) => {
                     *self = this;
                     let r_union = expr.1.union(&r).union(&dot_r);
-                    Node(Expr::DotAccess(dot_r, Box::new(expr), Node(ident, r)), r_union)
+                    expr = Node(Expr::DotAccess(dot_r, Box::new(expr), Node(ident, r)), r_union);
+                    max_err = err.max(max_err);
+                    continue;
                 },
-                Err(err) => return Ok((expr, err.max(max_err))),
+                Err(err) => max_err = err.max(max_err),
             }
+
+            let mut this = self.clone();
+            match this.read_index() {
+                Ok((dot_r, index_expr, err)) => {
+                    *self = this;
+                    let r_union = expr.1.union(&index_expr.1).union(&dot_r);
+                    expr = Node(Expr::Index(dot_r, Box::new(expr), Box::new(index_expr)), r_union);
+                    max_err = err.max(max_err);
+                    continue;
+                },
+                Err(err) => max_err = err.max(max_err),
+            }
+
+            return Ok((expr, max_err));
         }
     }
 
@@ -457,12 +473,30 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    fn read_member(&mut self) -> ParseResult<(SrcRef, Node<String>)> {
+    fn read_member(&mut self) -> ParseResult<(SrcRef, Node<String>, ParseError)> {
         let dot_r = match self.peek() {
             Token(Lexeme::Dot, r) => { self.advance(); r},
             Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Dot), Item::Lexeme(l), r))
         };
-        Ok((dot_r, self.read_ident()?))
+        Ok((dot_r, self.read_ident()?, ParseError::Phoney))
+    }
+
+    fn read_index(&mut self) -> ParseResult<(SrcRef, Node<Expr>, ParseError)> {
+        let r_start = match self.peek() {
+            Token(Lexeme::LBrack, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::LBrack), Item::Lexeme(l), r)),
+        };
+
+        let (expr, max_err) = self.read_expr()?;
+
+        match self.peek() {
+            Token(Lexeme::RBrack, r) => {
+                self.advance();
+                let r_union = expr.1.union(&r_start).union(&r);
+                Ok((r_union, expr, max_err))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RBrack), Item::Lexeme(l), r).max(max_err)),
+        }
     }
 
     fn read_fn_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {

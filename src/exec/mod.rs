@@ -37,6 +37,7 @@ pub enum ExecError {
     NotIterator,
     NotIterable(String),
     CannotCall(String),
+    CannotIndex(SrcRef, String, String),
     WrongArgNum(Option<SrcRef>, usize, usize),
     CannotDisplay(String),
     CouldNotParse(String),
@@ -73,6 +74,12 @@ impl ExecError {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
                     .and_then(|_| writeln!(f, "{}Value of type '{}' is not iterable.", output::Repeat(' ', (depth + 1) * 3), s))
+            },
+            ExecError::CannotIndex(r_index, ty, ty_index) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| output::fmt_ref(f, *r_index, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Cannot index value of type '{}' with value of type '{}'.", output::Repeat(' ', (depth + 1) * 3), ty, ty_index))
             },
             ExecError::CannotCall(s) => {
                 Ok(())
@@ -114,6 +121,7 @@ impl ExecError {
             },
             ExecError::WithSrc(src, err) => err.fmt_nice_located(f, Some(&src), psrc, depth, r),
             ExecError::WithPrevSrc(psrc, err) => err.fmt_nice_located(f, src, Some(&psrc), depth, r),
+            ExecError::At(r, err) => err.fmt_nice_located(f, src, psrc, depth, *r),
             _ => Ok(()),
         }
     }
@@ -146,6 +154,7 @@ impl ExecError {
             ExecError::Io(_) => Ok(()),
             ExecError::NotIterator => Ok(()),
             ExecError::NotIterable(_) => Ok(()),
+            ExecError::CannotIndex(_, _, _) => Ok(()),
             ExecError::CannotCall(_) => Ok(()),
             ExecError::WrongArgNum(_, _, _) => Ok(()),
             ExecError::CannotDisplay(_) => Ok(()),
@@ -211,6 +220,10 @@ pub trait Obj: 'static {
 
     fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
         Err(ExecError::CannotDetermineTruthiness(r, self.get_type_name()))
+    }
+
+    fn eval_index(&self, index: &Value, r: SrcRef) -> ExecResult<Value> {
+        Err(ExecError::CannotIndex(r, self.get_type_name(), index.get_type_name()))
     }
 
     fn eval_not(&self, refs: UnaryOpRef) -> ExecResult<Value> {
@@ -399,19 +412,41 @@ pub trait Scope {
         match expr {
             Expr::None => Ok(Value::Null),
             Expr::LiteralNumber(x) => Ok(Value::Number(*x)),
-            Expr::LiteralString(s) => Ok(Value::String(s.to_string())),
+            Expr::LiteralString(s) => Ok(Value::String(Rc::new(s.to_string()))),
             Expr::LiteralBoolean(b) => Ok(Value::Boolean(*b)),
             Expr::LiteralNull => Ok(Value::Null),
             Expr::Ident(name) =>
-                self.get_var(&name.0).map_err(|err| ExecError::At(name.1, Box::new(err))).map_err(src_map),
+                self.get_var(&name.0)
+                    .map_err(|err| ExecError::At(name.1, Box::new(err)))
+                    .map_err(src_map),
             Expr::DotAccess(_, _, _) => unimplemented!(),
+            Expr::Index(_r, expr, index) => {
+                self.eval_expr(&expr.0, io, src)
+                    .map_err(|err| ExecError::At(expr.1, Box::new(err)))
+                    .map_err(src_map)?
+                    .eval_index(
+                        &self.eval_expr(&index.0, io, src)
+                            .map_err(|err| ExecError::At(expr.1, Box::new(err)))
+                            .map_err(src_map)?,
+                        index.1,
+                    )
+                    .map_err(|err| ExecError::At(expr.1, Box::new(err)))
+                    .map_err(src_map)
+            },
             Expr::Call(_r, expr, params) => {
-                self.eval_expr(&expr.0, io, src)?.eval_call(params, self.as_scope_mut(), io, src, expr.1)
+                self.eval_expr(&expr.0, io, src)
+                    .map_err(|err| ExecError::At(expr.1, Box::new(err)))
+                    .map_err(src_map)?
+                    .eval_call(params, self.as_scope_mut(), io, src, expr.1)
             },
             Expr::List(items) => {
                 let mut list_items = vec![];
                 for item in &items.0 {
-                    list_items.push(self.eval_expr(&item.0, io, src)?);
+                    list_items.push(
+                        self.eval_expr(&item.0, io, src)
+                            .map_err(|err| ExecError::At(item.1, Box::new(err)))
+                            .map_err(src_map)?
+                    );
                 }
                 Ok(Value::List(Rc::new(list_items)))
             },
@@ -421,7 +456,10 @@ pub trait Scope {
             Expr::UnaryNeg(r, expr) =>
                 self.eval_expr(&expr.0, io, src)?.eval_neg(UnaryOpRef { op: *r, expr: expr.1 }).map_err(src_map),
             Expr::UnaryInput(r, expr) => {
-                let text = self.eval_expr(&expr.0, io, src)?.get_display_text()
+                let text = self.eval_expr(&expr.0, io, src)
+                    .map_err(|err| ExecError::At(expr.1, Box::new(err)))
+                    .map_err(src_map)?
+                    .get_display_text()
                     .map_err(|err| ExecError::At(expr.1, Box::new(err)))
                     .map_err(src_map)?;
                 let input = io.input(text)
@@ -431,7 +469,7 @@ pub trait Scope {
                     .trim().parse().map(|n| Value::Number(n))
                     .or_else(|_| input.trim().parse().map(|n| Value::Boolean(n)))
                     .or_else(|_| if input.trim() == "null" { Ok(Value::Null) } else { Err(()) })
-                    .or_else(|_| input.parse().map(|n| Value::String(n)))
+                    .or_else(|_| input.parse().map(|n| Value::String(Rc::new(n))))
                     .map_err(|_| ExecError::At(*r, Box::new(ExecError::CouldNotParse(input))))
                     .map_err(src_map)
             },

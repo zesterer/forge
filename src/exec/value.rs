@@ -31,7 +31,7 @@ pub trait ForgeIter = Iterator<Item=Value> + fmt::Debug;
 #[derive(Clone)]
 pub enum Value {
     Number(f64),
-    String(String),
+    String(Rc<String>),
     Char(char),
     Boolean(bool),
     Range(f64, f64),
@@ -156,7 +156,7 @@ impl Value {
     pub fn get_display_text(&self) -> ExecResult<String> {
         Ok(match self {
             Value::Number(x) => format!("{}", x),
-            Value::String(s) => s.clone(),
+            Value::String(s) => s.as_ref().clone(),
             Value::Char(c) => format!("{}", c),
             Value::Boolean(b) => format!("{}", b),
             Value::Range(x, y) => format!("{}..{}", x, y),
@@ -183,6 +183,21 @@ impl Value {
             Value::Boolean(b) => Ok(*b),
             Value::Custom(c) => c.eval_truth(r),
             _ => Err(ExecError::CannotDetermineTruthiness(r, self.get_type_name())),
+        }
+    }
+
+    pub fn eval_index(&self, index: &Value, r: SrcRef) -> ExecResult<Value> {
+        match (self, index) {
+            (Value::List(l), Value::Number(i)) => Ok(l.as_ref().get(*i as usize).cloned().unwrap_or(Value::Null)),
+            (Value::List(l), Value::Range(x, y)) => Ok({
+                if let Some(slice) = l.as_ref().get(*x as usize..*y as usize) {
+                    Value::List(Rc::new(slice.iter().map(|v| v.clone()).collect()))
+                } else {
+                    Value::Null
+                }
+            }),
+            (Value::Custom(c), index) => c.eval_index(index, r),
+            (this, index) => Err(ExecError::CannotIndex(r, this.get_type_name(), index.get_type_name())),
         }
     }
 
@@ -280,11 +295,11 @@ impl Value {
     pub fn eval_add(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x.clone() + y)),
-            (Value::String(x), Value::String(y)) => Ok(Value::String(x.clone() + y)),
-            (Value::String(x), Value::Char(y)) => Ok(Value::String(format!("{}{}", x, y))),
-            (Value::String(x), Value::Number(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
-            (Value::String(x), Value::Boolean(y)) => Ok(Value::String(x.clone() + &format!("{}", y))),
-            (Value::String(x), Value::Null) => Ok(Value::String(x.clone() + &"null")),
+            (Value::String(x), Value::String(y)) => Ok(Value::String(Rc::new(x.as_ref().clone() + y.as_ref()))),
+            (Value::String(x), Value::Char(y)) => Ok(Value::String(Rc::new(format!("{}{}", x, y)))),
+            (Value::String(x), Value::Number(y)) => Ok(Value::String(Rc::new(x.as_ref().clone() + &format!("{}", y)))),
+            (Value::String(x), Value::Boolean(y)) => Ok(Value::String(Rc::new(x.as_ref().clone() + &format!("{}", y)))),
+            (Value::String(x), Value::Null) => Ok(Value::String(Rc::new(x.as_ref().clone() + &"null"))),
             (Value::List(x), Value::List(y)) => {
                 let mut v = x.as_ref().clone();
                 v.append(&mut y.as_ref().clone());
@@ -381,7 +396,7 @@ impl Value {
     pub fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
-            (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x == *y)),
+            (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x.as_ref() == *y.as_ref())),
             (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Fn(_, x), Value::Fn(_, y)) => Ok(Value::Boolean(Rc::ptr_eq(&x, &y))),
@@ -488,7 +503,7 @@ impl PartialEq<i64> for Value {
 impl<'a> PartialEq<&'a str> for Value {
     fn eq(&self, other: &&'a str) -> bool {
         match self {
-            Value::String(x) => x.eq(*other),
+            Value::String(x) => x.as_str().eq(*other),
             _ => false,
         }
     }
@@ -541,13 +556,13 @@ impl From<bool> for Value {
 
 impl<'a> From<&'a str> for Value {
     fn from(other: &'a str) -> Self {
-        Value::String(other.to_string())
+        Value::String(Rc::new(other.to_string()))
     }
 }
 
 impl From<String> for Value {
     fn from(other: String) -> Self {
-        Value::String(other)
+        Value::String(Rc::new(other))
     }
 }
 

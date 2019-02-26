@@ -16,6 +16,7 @@ pub enum Expr {
 
     Call(SrcRef, Box<Node<Expr>>, Node<Vec<Node<Expr>>>),
     DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
+    Index(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
 
     UnaryNot(SrcRef, Box<Node<Expr>>),
     UnaryNeg(SrcRef, Box<Node<Expr>>),
@@ -110,8 +111,13 @@ impl Expr {
                 }
             },
             Expr::DotAccess(_, expr, s) => {
-                println!("{}Dot accessor '{}'", Spaces(depth), s.0);
+                println!("{}Dot access '{}'", Spaces(depth), s.0);
                 expr.0.print_debug(depth + 1);
+            },
+            Expr::Index(_, expr, index) => {
+                println!("{}Index access", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+                index.0.print_debug(depth + 1);
             },
             Expr::UnaryNot(_, expr) => {
                 println!("{}Unary not", Spaces(depth));
