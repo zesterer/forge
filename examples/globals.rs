@@ -7,7 +7,12 @@ fn main() {
     let mut engine = Engine::build()
         .with_global("name", "Alex")
         .with_global("bag_weight", 46)
-        .with_global("groceries", Value::iter(vec!["pear", "banana", "carton of milk", "box of eggs"]))
+        .with_global("groceries", Value::iter(vec![
+            (|| println!("An apple")) as fn(),
+            || println!("A pear"),
+            || println!("A carton of milk"),
+            || println!("A box of eggs"),
+        ]))
         .with_global("finished", false)
         .finish();
 
@@ -16,8 +21,8 @@ fn main() {
         print "My bag weighs " + bag_weight + " Kg";
 
         print "In my bag I have:";
-        for item in groceries {
-            print "A " + item;
+        for item_func in groceries {
+            item_func();
         }
 
         if finished {
