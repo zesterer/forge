@@ -150,6 +150,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_call(&self, params: &Node<Vec<Node<Expr>>>, caller: &mut dyn Scope, io: &mut dyn Io, src: &Rc<String>, r_caller: SrcRef) -> ExecResult<Value> {
         match self {
             Value::Fn(code, f) => if ((f.0).0).0.len() != params.0.len() {
@@ -169,6 +170,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn get_type_name(&self) -> String {
         match self {
             Value::Number(_) => String::from("number"),
@@ -183,6 +185,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn get_display_text(&self) -> ExecResult<String> {
         Ok(match self {
             Value::Number(x) => format!("{}", x),
@@ -208,6 +211,7 @@ impl Value {
         })
     }
 
+    #[inline(always)]
     pub fn eval_truth(&self, r: SrcRef) -> ExecResult<bool> {
         match self {
             Value::Boolean(b) => Ok(*b),
@@ -216,6 +220,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_index(&self, index: &Value, r: SrcRef) -> ExecResult<Value> {
         match (self, index) {
             (Value::String(s), Value::Number(i)) => Ok(s
@@ -245,6 +250,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_not(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Boolean(b) => Ok(Value::Boolean(!b)),
@@ -257,6 +263,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_neg(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Number(x) => Ok(Value::Number(-x)),
@@ -269,6 +276,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_clone(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Number(x) => Ok(Value::Number(*x)),
@@ -283,6 +291,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_mirror(&self, refs: UnaryOpRef) -> ExecResult<Value> {
         match self {
             Value::Number(x) => Ok(Value::Number(*x)),
@@ -297,6 +306,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_mul(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x * *y)),
@@ -310,6 +320,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_div(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x / *y)),
@@ -323,6 +334,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_rem(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x % *y)),
@@ -336,6 +348,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_add(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x.clone() + y)),
@@ -364,6 +377,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_sub(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(*x - *y)),
@@ -377,6 +391,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_greater(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x > *y)),
@@ -392,6 +407,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_greater_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x >= *y)),
@@ -407,6 +423,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_less(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x < *y)),
@@ -422,6 +439,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_less_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x <= *y)),
@@ -437,6 +455,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
@@ -450,6 +469,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_not_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x != *y)),
@@ -463,6 +483,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_and(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x && *y)),
@@ -476,6 +497,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_or(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x || *y)),
@@ -489,6 +511,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_xor(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x ^ *y)),
@@ -502,6 +525,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_range(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Range(*x, *y)),
@@ -515,19 +539,24 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn eval_as(&self, ty: &Type, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, ty) {
             (Value::Number(x), Type::Char) => Ok(Value::Char(*x as u64 as u8 as char)),
             (Value::Number(s), Type::String) => Ok(Value::String(Rc::new(RefCell::new(format!("{}", s))))),
+            (Value::Char(c), Type::Number) => Ok(Value::Number(*c as u8 as f64)),
+            (Value::Char(c), Type::String) => Ok(Value::String(Rc::new(RefCell::new(format!("{}", c))))),
+            (Value::Boolean(b), Type::String) => Ok(Value::String(Rc::new(RefCell::new(format!("{}", b))))),
             _ => Err(ExecError::BinaryOp {
                 op: "as",
                 left_type: self.get_type_name(),
                 right_type: ty.get_name(),
                 refs,
             }),
-        }
+        }.map_err(|err| ExecError::At(refs.op, Box::new(err)))
     }
 
+    #[inline(always)]
     pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<ForgeIter>> {
         match self {
             Value::Range(x, y) => Ok(Box::new((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
@@ -538,6 +567,7 @@ impl Value {
         }
     }
 
+    #[inline(always)]
     pub fn assign_index(&mut self, index: &Value, rhs: Value, r_idx: SrcRef, r_rhs: SrcRef) -> ExecResult<()> {
         let byte_indices = |s: &str, (a, b)| Ok((
             s
@@ -546,7 +576,8 @@ impl Value {
                 .ok_or_else(|| ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))?.0,
             s
                 .char_indices()
-                .nth(b)
+                .chain(Some((s.len(), '_')))
+                .nth(b as usize)
                 .ok_or_else(|| ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))?.0,
         ));
         match (&self, index, &rhs) {

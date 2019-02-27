@@ -1,7 +1,7 @@
 var run = |code| {
 	# TODO: Find a better syntax to create long arrays.. maybe [x] * n?
 	var tape_1000 = [];
-	for _ in 0..1000 {
+	for _ in 0..100 {
 		tape_1000 += [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 	}
 	var tape = [];
@@ -12,6 +12,7 @@ var run = |code| {
 	var tape_ptr = 0;
 	var code_ptr = 0;
 	var output = "";
+	var inp = "";
 
 	var running = true;
 	while running {
@@ -24,10 +25,16 @@ var run = |code| {
 			if instr == '+' { tape[tape_ptr] = (tape[tape_ptr] + 1) % 256; }
 			if instr == '-' { tape[tape_ptr] = (tape[tape_ptr] - 1) % 256; }
 			if instr == ',' {
+				# This is kind of a hack
 				print output;
 				output = "";
-				# TODO: Input
-				null + null;
+
+				# This is definitely a hack
+				while inp[0] == null {
+					inp = (input ' ' as str);
+				}
+				tape[tape_ptr] = inp[0] as num;
+				inp[0..1] = "";
 			}
 			if instr == '[' and tape[tape_ptr] == 0 {
 				code_ptr += 1;
@@ -59,6 +66,8 @@ var run = |code| {
 };
 
 var hello_world = "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.";
+
+# ++++++++[>+>++++<<-]>++>>+<[-[>>+<<-]+>>]>+[-<<<[->[+[-]+>++>>>-<<]<[<]>>++++++[<<+++++>>-]+<<++.[-]<<]>.>+[>>]>+]
 
 var groves_42 = "
            +++++[>++[>+>+        ++>++++>++++>++++>++++++

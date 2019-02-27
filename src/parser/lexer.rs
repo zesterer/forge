@@ -147,8 +147,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
     enum State {
         Default,
         Comment,
-        String,
-        Char,
+        String(char, bool),
         Number,
         Ident,
     }
@@ -238,12 +237,12 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 '"' => /*"*/ {
                     strbuf.clear();
                     start_loc = loc;
-                    state = State::String;
+                    state = State::String('\"' /*"*/, false);
                 },
                 '\'' => {
                     strbuf.clear();
                     start_loc = loc;
-                    state = State::Char;
+                    state = State::String('\'', false);
                 },
                 '0' ... '9' => {
                     strbuf.clear();
@@ -269,40 +268,41 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                 '\n' | '\0' => state = State::Default,
                 _ => {},
             },
-            State::String => match c {
-                '"' => /*"*/ {
-                    tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc.next_col(true))));
-                    state = State::Default;
+            State::String(delim, escaped) => match c {
+
+                '\\' if !escaped => {
+                    state = State::String(delim, true);
+                },
+                'n' if escaped => {
+                    strbuf.push('\n');
+                    state = State::String(delim, false);
                 },
                 '\0' => {
                     errors.push(ParseError::At(
                         SrcRef::end(),
-                        Box::new(ParseError::ExpectedDelimiter('"')), /*"*/
+                        Box::new(ParseError::ExpectedDelimiter(delim)),
                     ));
                     break;
                 },
-                c => strbuf.push(c),
-            },
-            State::Char => match c {
-                '\'' => {
-                    if strbuf.len() == 1 {
-                        tokens.push(Token(Lexeme::Char(strbuf.char_indices().next().unwrap().1), SrcRef::many(start_loc, loc.next_col(true))));
-                    } else {
-                        errors.push(ParseError::At(
-                            SrcRef::many(start_loc, loc.next_col(true)),
-                            Box::new(ParseError::CharTooLong),
-                        ));
+                c if c == delim && !escaped => {
+                    match delim {
+                        '\'' => if strbuf.len() == 1 {
+                            tokens.push(Token(Lexeme::Char(strbuf.char_indices().next().unwrap().1), SrcRef::many(start_loc, loc.next_col(true))));
+                        } else {
+                            errors.push(ParseError::At(
+                                SrcRef::many(start_loc, loc.next_col(true)),
+                                Box::new(ParseError::CharTooLong),
+                            ));
+                        },
+                        '"' /*"*/ => tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc.next_col(true)))),
+                        _ => unimplemented!(),
                     }
                     state = State::Default;
                 },
-                '\0' => {
-                    errors.push(ParseError::At(
-                        SrcRef::end(),
-                        Box::new(ParseError::ExpectedDelimiter('"')), /*"*/
-                    ));
-                    break;
+                c => {
+                    strbuf.push(c);
+                    state = State::String(delim, false);
                 },
-                c => strbuf.push(c),
             },
             State::Number => match c {
                 '0' ... '9' => strbuf.push(c),
