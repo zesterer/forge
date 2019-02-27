@@ -49,6 +49,7 @@ pub enum Lexeme {
     Print, Input,
     Clone,
     Mirror,
+    As,
 
     // Misc
     Reserved,
@@ -115,6 +116,7 @@ impl fmt::Display for Lexeme {
             Lexeme::Input => write!(f, "input"),
             Lexeme::Clone => write!(f, "clone"),
             Lexeme::Mirror => write!(f, "mirror"),
+            Lexeme::As => write!(f, "as"),
 
             Lexeme::Reserved => write!(f, "<reserved>"),
             Lexeme::Eof => write!(f, "EOF"),
@@ -122,15 +124,14 @@ impl fmt::Display for Lexeme {
     }
 }
 
-const RESERVED_KEYWORDS: [&'static str; 38] = [
-    "let",      "self",   "Self",  "extern", "move",
-    "mut",      "enum",   "num",   "string", "str",
-    "bool",     "const",  "as",    "loop",   "pub",
-    "priv",     "ref",    "match", "use",    "where",
-    "do",       "clone",  "type",  "class",  "base",
-    "super",    "struct", "trait", "impl",   "of",
-    "with",     "when",   "then",  "await",  "async",
-    "continue", "yield",  "mut",
+const RESERVED_KEYWORDS: [&'static str; 35] = [
+    "let",      "self",   "Self",     "extern", "move",
+    "mut",      "enum",   "continue", "string", "yield",
+    "bool",     "const",  "mut",      "loop",   "pub",
+    "priv",     "ref",    "match",    "use",    "where",
+    "do",       "clone",  "type",     "class",  "base",
+    "super",    "struct", "trait",    "impl",   "of",
+    "with",     "when",   "then",     "await",  "async",
 ];
 
 #[derive(Clone, Debug)]
@@ -340,6 +341,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     "input" => Lexeme::Input,
                     "clone" => Lexeme::Clone,
                     "mirror" => Lexeme::Mirror,
+                    "as" => Lexeme::As,
                     "true" => Lexeme::True,
                     "false" => Lexeme::False,
                     "null" => Lexeme::Null,

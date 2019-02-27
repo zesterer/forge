@@ -181,21 +181,38 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
+    fn read_as(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        let (mut expr, mut max_err) = self.read_call()?;
+
+        loop {
+            match self.peek() {
+                Token(Lexeme::As, r) => {
+                    self.advance();
+                    let (operand, err) = self.read_call()?;
+                    let r_union = r.union(&expr.1).union(&operand.1);
+                    expr = Node(Expr::BinaryAs(r, Box::new(expr), Box::new(operand)), r_union);
+                    max_err = err.max(max_err);
+                },
+                Token(_l, _r) => return Ok((expr, max_err)),
+            };
+        }
+    }
+
     fn read_unary(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         Ok(match self.peek() {
             Token(Lexeme::Bang, r) => {
                 self.advance();
-                let (operand, err) = self.read_unary()?;
+                let (operand, err) = self.read_as()?;
                 let r_union = r.union(&operand.1);
                 (Node(Expr::UnaryNot(r, Box::new(operand)), r_union), err)
             },
             Token(Lexeme::Minus, r) => {
                 self.advance();
-                let (operand, err) = self.read_unary()?;
+                let (operand, err) = self.read_as()?;
                 let r_union = r.union(&operand.1);
                 (Node(Expr::UnaryNeg(r, Box::new(operand)), r_union), err)
             },
-            _ => self.read_call()?,
+            _ => self.read_as()?,
         })
     }
 

@@ -6,6 +6,7 @@ mod value;
 pub use self::{
     value::{
         Value,
+        Type,
         ForgeIter,
     },
     global_scope::GlobalScope,
@@ -36,6 +37,7 @@ use block_scope::BlockScope;
 #[derive(Debug)]
 pub enum ExecError {
     NotIterator,
+    NotAType,
     InvalidIndex(String, Value),
     NotIterable(String),
     CannotCall(String),
@@ -68,6 +70,11 @@ impl ExecError {
     pub fn fmt_nice_located(&self, f: &mut fmt::Formatter, src: Option<&str>, psrc: Option<&str>, depth: usize, r: SrcRef) -> fmt::Result {
         writeln!(f, "[ERROR] Runtime error at {}...", r.start())?;
         match self {
+            ExecError::NotAType => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Expression is not a type.", output::Repeat(' ', (depth + 1) * 3)))
+            },
             ExecError::InvalidIndex(ty, val) => {
                 let val = val.get_display_text().unwrap_or("<cannot display value>".to_string());
                 Ok(())
@@ -167,6 +174,7 @@ impl ExecError {
             ExecError::WithSrc(src, err) => err.fmt_nice(f, Some(&src), psrc, depth),
             ExecError::WithPrevSrc(psrc, err) => err.fmt_nice(f, src, Some(&psrc), depth),
             ExecError::Io(_) => Ok(()),
+            ExecError::NotAType => Ok(()),
             ExecError::InvalidIndex(_, _) => Ok(()),
             ExecError::NotIterator => Ok(()),
             ExecError::NotIterable(_) => Ok(()),
@@ -275,137 +283,146 @@ pub trait Obj: 'static {
         })
     }
 
-    fn eval_mul(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_mul(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "mul",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_div(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_div(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "div",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_rem(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_rem(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "rem",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_add(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_add(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "add",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_sub(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_sub(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "sub",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_greater(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_greater(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "greater",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_greater_eq(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_greater_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "greater_eq",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_less(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_less(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "less",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_less_eq(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_less_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "less_eq",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_eq(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "eq",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_not_eq(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_not_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "not_eq",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_and(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_and(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "and",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_or(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_or(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "or",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_xor(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_xor(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "xor",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
             refs,
         })
     }
 
-    fn eval_range(&self, _rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
+    fn eval_range(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         Err(ExecError::BinaryOp {
             op: "range",
             left_type: self.get_type_name(),
-            right_type: self.get_type_name(),
+            right_type: rhs.get_type_name(),
+            refs,
+        })
+    }
+
+    fn eval_as(&self, ty: &Type, refs: BinaryOpRef) -> ExecResult<Value> {
+        Err(ExecError::BinaryOp {
+            op: "as",
+            left_type: self.get_type_name(),
+            right_type: ty.get_name(),
             refs,
         })
     }
@@ -426,6 +443,30 @@ pub trait Scope {
     fn assign_var(&mut self, name: &str, val: Value) -> ExecResult<()>;
     fn list(&self);
     fn as_scope_mut(&mut self) -> &mut dyn Scope;
+
+    fn eval_type(&mut self, expr: &Expr, io: &mut dyn Io, src: &Rc<String>, r: SrcRef) -> ExecResult<Type> {
+        let src_map = |err| ExecError::WithSrc(src.clone(), Box::new(err));
+
+        match expr {
+            Expr::Ident(name) => match name.0.as_str() {
+                "num" => Ok(Type::Number),
+                "str" => Ok(Type::String),
+                "char" => Ok(Type::Char),
+                "bool" => Ok(Type::Boolean),
+                "range" => Ok(Type::Range),
+                "fn" => Ok(Type::Fn),
+                "list" => Ok(Type::List),
+                "Custom" => Ok(Type::Custom),
+                "null" => Ok(Type::Null),
+                name => Err(ExecError::NotAType)
+                    .map_err(|err| ExecError::At(r, Box::new(err)))
+                    .map_err(src_map),
+            },
+            _ => Err(ExecError::NotAType)
+                .map_err(|err| ExecError::At(r, Box::new(err)))
+                .map_err(src_map),
+        }
+    }
 
     fn eval_expr(&mut self, expr: &Expr, io: &mut dyn Io, src: &Rc<String>) -> ExecResult<Value> {
         let src_map = |err| ExecError::WithSrc(src.clone(), Box::new(err));
@@ -530,6 +571,8 @@ pub trait Scope {
                 self.eval_expr(&left.0, io, src)?.eval_xor(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryRange(r, left, right) =>
                 self.eval_expr(&left.0, io, src)?.eval_range(&self.eval_expr(&right.0, io, src).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
+            Expr::BinaryAs(r, left, right) =>
+                self.eval_expr(&left.0, io, src)?.eval_as(&self.eval_type(&right.0, io, src, right.1).map_err(src_map)?, BinaryOpRef { op: *r, left: left.1, right: right.1 }),
             Expr::BinaryAssign(r, lvalue, rvalue) => {
                 let val = self.eval_expr(&rvalue.0, io, src)
                     .map_err(|err| ExecError::At(rvalue.1, Box::new(err)))

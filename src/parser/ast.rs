@@ -44,6 +44,7 @@ pub enum Expr {
     BinaryOr(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryXor(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
     BinaryRange(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
+    BinaryAs(SrcRef, Box<Node<Expr>>, Box<Node<Expr>>),
 
     BinaryAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
     BinaryAddAssign(SrcRef, Node<LVal>, Box<Node<Expr>>),
@@ -228,6 +229,11 @@ impl Expr {
             },
             Expr::BinaryRange(_, left, right) => {
                 println!("{}Binary range", Spaces(depth));
+                left.0.print_debug(depth + 1);
+                right.0.print_debug(depth + 1);
+            },
+            Expr::BinaryAs(_, left, right) => {
+                println!("{}Binary as", Spaces(depth));
                 left.0.print_debug(depth + 1);
                 right.0.print_debug(depth + 1);
             },

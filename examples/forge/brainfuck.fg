@@ -1,0 +1,75 @@
+var run = |code| {
+	# TODO: Find a better syntax to create long arrays.. maybe [x] * n?
+	var tape = [];
+	for _ in 0..3000 {
+		tape += 0;
+	}
+
+	var tape_ptr = 0;
+	var code_ptr = 0;
+	var output = "";
+
+	var running = true;
+	while running {
+		var instr = code[code_ptr];
+		if instr == null {
+			running = false;
+		} else {
+			if instr == '>' {
+				tape_ptr += 1;
+			}
+			if instr == '<' {
+				tape_ptr -= 1;
+			}
+			if instr == '+' {
+				tape[tape_ptr] = (tape[tape_ptr] + 1) % 256;
+			}
+			if instr == '-' {
+				tape[tape_ptr] = (tape[tape_ptr] - 1) % 256;
+			}
+			if instr == ',' {
+				print output;
+				output = "";
+				# TODO: Input
+				null + null;
+			}
+			if instr == '[' and tape[tape_ptr] == 0 {
+				code_ptr += 1;
+				var balance = 0;
+				while code[code_ptr] != ']' or balance != 0 {
+					if code[code_ptr] == ']' {
+						balance += 1;
+					}
+					if code[code_ptr] == '[' {
+						balance -= 1;
+					}
+					code_ptr += 1;
+				}
+			}
+			if instr == ']' and tape[tape_ptr] != 0 {
+				code_ptr -= 1;
+				var balance = 0;
+				while code[code_ptr] != '[' or balance != 0 {
+					if code[code_ptr] == ']' {
+						balance += 1;
+					}
+					if code[code_ptr] == '[' {
+						balance -= 1;
+					}
+					code_ptr -= 1;
+				}
+			}
+			if instr == '.' {
+				output += tape[tape_ptr] as char;
+			}
+
+			code_ptr += 1;
+		}
+	}
+
+	print output;
+};
+
+var hello_world = "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.";
+
+run(hello_world);

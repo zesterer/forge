@@ -27,6 +27,35 @@ use super::{
     Io,
 };
 
+#[derive(Debug)]
+pub enum Type {
+    Number,
+    String,
+    Char,
+    Boolean,
+    Range,
+    Fn,
+    List,
+    Custom,
+    Null,
+}
+
+impl Type {
+    pub fn get_name(&self) -> String {
+        match self {
+            Type::Number => String::from("number"),
+            Type::String => String::from("string"),
+            Type::Char => String::from("char"),
+            Type::Boolean => String::from("bool"),
+            Type::Range => String::from("range"),
+            Type::Fn => String::from("function"),
+            Type::List => String::from("list"),
+            Type::Custom => unimplemented!(),
+            Type::Null => String::from("null"),
+        }
+    }
+}
+
 pub trait ForgeIter = Iterator<Item=Value> + fmt::Debug;
 
 #[derive(Clone)]
@@ -481,6 +510,19 @@ impl Value {
                 op: "range",
                 left_type: this.get_type_name(),
                 right_type: rhs.get_type_name(),
+                refs,
+            }),
+        }
+    }
+
+    pub fn eval_as(&self, ty: &Type, refs: BinaryOpRef) -> ExecResult<Value> {
+        match (self, ty) {
+            (Value::Number(x), Type::Char) => Ok(Value::Char(*x as u64 as u8 as char)),
+            (Value::Number(s), Type::String) => Ok(Value::String(Rc::new(RefCell::new(format!("{}", s))))),
+            _ => Err(ExecError::BinaryOp {
+                op: "as",
+                left_type: self.get_type_name(),
+                right_type: ty.get_name(),
                 refs,
             }),
         }
