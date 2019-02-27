@@ -126,19 +126,17 @@ Parser errors:
 [ERROR] Parsing error at 1:45...
    ...while parsing if-else statement...
    ...while parsing print statement...
-   |1:45| var x = 1; if x > 2 { print "Hello, world!" oops; }
-                                                      ^^^^
+        1| var x = 1; if x > 2 { print "Hello, world!" oops; }
+         |                                             ^^^^
    Expected ';', found identifier 'oops'.
 ```
 
 Runtime errors:
 
 ```
->> var p = true; while p { print "On the next iteration, p will be null"; p = null; }
-On the next iteration, p will be null
 [ERROR] Runtime error at 1:21...
-   |1:21| var p = true; while p { print "On the next iteration, p will be null"; p = null; }
-                              ^
+        1| var p = true; while p { print "On the next iteration, p will be null"; p = null; }
+         |                     ^
    Cannot determine the truthiness of value of type 'null'. Did you mean for this to be a bool?
 ```
 
@@ -146,9 +144,9 @@ Runtime errors that produce error messages that reference code written during th
 
 ```
 [ERROR] Runtime error at 1:10...
-   |1:17| var say_hello = || { print "Hello, world!"; };
-                          ^^
-   |1:10| say_hello(1); # Wrong number of parameters
-                   ^^^
+        1| var say_hello = || { print "Hello, world!"; };
+         |                 ^^
+        1| say_hello(1); # Wrong number of parameters
+         |          ^^^
    Tried to call a function with the wrong number of parameters. Expected 0, found 1.
 ```
