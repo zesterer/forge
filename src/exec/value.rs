@@ -196,6 +196,13 @@ impl Value {
                 .map(|(_, c)| Value::Char(c))
                 .unwrap_or(Value::Null)
             ),
+            (Value::String(s), Value::Range(a, b)) => Ok(Value::String(Rc::new(RefCell::new(s
+                .borrow()
+                .chars()
+                .skip(*a as usize)
+                .take(*b as usize - *a as usize)
+                .collect()
+            )))),
             (Value::List(l), Value::Number(i)) => Ok(l.borrow().get(*i as usize).cloned().unwrap_or(Value::Null)),
             (Value::List(l), Value::Range(x, y)) => Ok({
                 if let Some(slice) = l.borrow().get(*x as usize..*y as usize) {
@@ -519,6 +526,20 @@ impl Value {
                     .get_mut(*i as usize)
                     .map(|v| *v = rhs)
                     .ok_or_else(|| ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))
+            },
+            (Value::List(l), Value::Range(a, b), Value::List(extra_l)) => {
+                let extra_list = extra_l.borrow().clone();
+                if *a as usize >= 0 && *b as usize <= l.borrow().len() {
+                    let new_list = Value::List(Rc::new(RefCell::new(l
+                        .borrow_mut()
+                        .splice(*a as usize..*b as usize, extra_list)
+                        .collect()
+                    )));
+                    *self = new_list;
+                    Ok(())
+                } else {
+                    Err(ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))
+                }
             },
             (this, index, _) => Err(ExecError::CannotIndex(r_idx, this.get_type_name(), index.get_type_name())),
         }
