@@ -72,6 +72,7 @@ $ forge my_script.fg
 - [x] Iterators
 - [x] Rust-to-Forge iterators
 - [x] Lists
+- [x] List splicing
 - [x] Indexing and ranges
 - [x] `clone` and `mirror` operators
 - [x] Lvalues vs rvalues
@@ -85,6 +86,31 @@ $ forge my_script.fg
 - [ ] Bytecode generation
 - [ ] Bytecode interpretation
 - [ ] LLVM-driven recompilation
+
+## Some Syntax Examples
+
+List splicing
+
+```
+>> var my_list = [0, 1, 2, 3];
+>> my_list[1..2]
+[1]
+>> my_list[1..3] = ["this", "is", "a", "list", "splice"];
+>> my_list
+[0, this, is, a, list, splice, 3]
+```
+
+String splicing
+
+```
+>> "Hello, world!"[7..12]
+world
+>> var test = "An apple is what I am eating";
+>> test[3..8] = "pear";
+>> test
+An pear is what I am eating
+>>
+```
 
 ## Design
 
@@ -104,7 +130,7 @@ Forge has several distinct types:
 - Custom *Used to call to and from Rust*
 - Null
 
-### Things to do
+### Things To Do
 
 - Investigate design features that would make the dynamic type system easier to optimise
 
