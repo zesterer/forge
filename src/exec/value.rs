@@ -3,6 +3,7 @@ use std::{
     cmp::PartialEq,
     fmt,
     ops::Range,
+    cell::RefCell,
 };
 use crate::{
     parser::{
@@ -31,12 +32,12 @@ pub trait ForgeIter = Iterator<Item=Value> + fmt::Debug;
 #[derive(Clone)]
 pub enum Value {
     Number(f64),
-    String(Rc<String>),
+    String(Rc<RefCell<String>>),
     Char(char),
     Boolean(bool),
     Range(f64, f64),
     Fn(Rc<String>, Rc<(Node<Args>, Node<Block>)>),
-    List(Rc<Vec<Value>>),
+    List(Rc<RefCell<Vec<Value>>>),
     Custom(Rc<dyn Obj>),
     Null,
 }
@@ -50,7 +51,7 @@ impl fmt::Debug for Value {
             Value::Boolean(b) => writeln!(f, "Boolean({:?})", b),
             Value::Range(x, y) => writeln!(f, "Range({:?}, {:?})", x, y),
             Value::Fn(s, func) => writeln!(f, "Fn({:?}, {:?})", s, func),
-            Value::List(l) => writeln!(f, "List({:?})", l),
+            Value::List(l) => writeln!(f, "List({:?})", l.borrow()),
             Value::Custom(c) => writeln!(f, "Custom({:?})", &c as *const _),
             Value::Null => writeln!(f, "Null"),
         }
@@ -156,17 +157,17 @@ impl Value {
     pub fn get_display_text(&self) -> ExecResult<String> {
         Ok(match self {
             Value::Number(x) => format!("{}", x),
-            Value::String(s) => s.as_ref().clone(),
+            Value::String(s) => s.borrow().clone(),
             Value::Char(c) => format!("{}", c),
             Value::Boolean(b) => format!("{}", b),
             Value::Range(x, y) => format!("{}..{}", x, y),
             Value::Fn(_, _) => String::from("<function>"),
             Value::List(l) => {
                 let mut s = String::from("[");
-                if let Some(i) = l.get(0) {
+                if let Some(i) = l.borrow().get(0) {
                     s += &i.get_display_text()?;
                 }
-                for item in l.get(1..).unwrap_or(&[]) {
+                for item in l.borrow().get(1..).unwrap_or(&[]) {
                     s += ", ";
                     s += &item.get_display_text()?;
                 }
@@ -188,10 +189,17 @@ impl Value {
 
     pub fn eval_index(&self, index: &Value, r: SrcRef) -> ExecResult<Value> {
         match (self, index) {
-            (Value::List(l), Value::Number(i)) => Ok(l.as_ref().get(*i as usize).cloned().unwrap_or(Value::Null)),
+            (Value::String(s), Value::Number(i)) => Ok(s
+                .borrow()
+                .char_indices()
+                .nth(*i as usize)
+                .map(|(_, c)| Value::Char(c))
+                .unwrap_or(Value::Null)
+            ),
+            (Value::List(l), Value::Number(i)) => Ok(l.borrow().get(*i as usize).cloned().unwrap_or(Value::Null)),
             (Value::List(l), Value::Range(x, y)) => Ok({
-                if let Some(slice) = l.as_ref().get(*x as usize..*y as usize) {
-                    Value::List(Rc::new(slice.iter().map(|v| v.clone()).collect()))
+                if let Some(slice) = l.borrow().get(*x as usize..*y as usize) {
+                    Value::List(Rc::new(RefCell::new(slice.iter().map(|v| v.clone()).collect())))
                 } else {
                     Value::Null
                 }
@@ -247,7 +255,7 @@ impl Value {
             Value::Boolean(b) => Ok(Value::Boolean(*b)),
             Value::Range(x, y) => Ok(Value::Range(*x, *y)),
             Value::Fn(s, f) => Ok(Value::Fn(s.clone(), f.clone())),
-            Value::List(l) => Ok(Value::List(Rc::new(l.as_ref().iter().map(|i| i.eval_mirror(refs)).collect::<Result<_, _>>()?))),
+            Value::List(l) => Ok(Value::List(Rc::new(RefCell::new(l.borrow().iter().map(|i| i.eval_mirror(refs)).collect::<Result<_, _>>()?)))),
             Value::Custom(c) => c.eval_mirror(refs),
             Value::Null => Ok(Value::Null),
         }
@@ -295,20 +303,20 @@ impl Value {
     pub fn eval_add(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x.clone() + y)),
-            (Value::String(x), Value::String(y)) => Ok(Value::String(Rc::new(x.as_ref().clone() + y.as_ref()))),
-            (Value::String(x), Value::Char(y)) => Ok(Value::String(Rc::new(format!("{}{}", x, y)))),
-            (Value::String(x), Value::Number(y)) => Ok(Value::String(Rc::new(x.as_ref().clone() + &format!("{}", y)))),
-            (Value::String(x), Value::Boolean(y)) => Ok(Value::String(Rc::new(x.as_ref().clone() + &format!("{}", y)))),
-            (Value::String(x), Value::Null) => Ok(Value::String(Rc::new(x.as_ref().clone() + &"null"))),
+            (Value::String(x), Value::String(y)) => Ok(Value::String(Rc::new(RefCell::new(x.borrow().clone() + &y.borrow())))),
+            (Value::String(x), Value::Char(y)) => Ok(Value::String(Rc::new(RefCell::new(format!("{}{}", x.borrow(), y))))),
+            (Value::String(x), Value::Number(y)) => Ok(Value::String(Rc::new(RefCell::new(x.borrow().clone() + &format!("{}", y))))),
+            (Value::String(x), Value::Boolean(y)) => Ok(Value::String(Rc::new(RefCell::new(x.borrow().clone() + &format!("{}", y))))),
+            (Value::String(x), Value::Null) => Ok(Value::String(Rc::new(RefCell::new(x.borrow().clone() + &"null")))),
             (Value::List(x), Value::List(y)) => {
-                let mut v = x.as_ref().clone();
-                v.append(&mut y.as_ref().clone());
-                Ok(Value::List(Rc::new(v)))
+                let mut v = x.borrow().clone();
+                v.append(&mut y.borrow().clone());
+                Ok(Value::List(Rc::new(RefCell::new(v))))
             },
             (Value::List(x), rhs) => {
-                let mut v = x.as_ref().clone();
+                let mut v = x.borrow().clone();
                 v.push(rhs.clone());
-                Ok(Value::List(Rc::new(v)))
+                Ok(Value::List(Rc::new(RefCell::new(v))))
             },
             (Value::Custom(c), rhs) => c.eval_add(rhs, refs),
             (this, rhs) => Err(ExecError::BinaryOp {
@@ -396,7 +404,7 @@ impl Value {
     pub fn eval_eq(&self, rhs: &Value, refs: BinaryOpRef) -> ExecResult<Value> {
         match (self, rhs) {
             (Value::Number(x), Value::Number(y)) => Ok(Value::Boolean(*x == *y)),
-            (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x.as_ref() == *y.as_ref())),
+            (Value::String(x), Value::String(y)) => Ok(Value::Boolean(*x.borrow() == *y.borrow())),
             (Value::Char(x), Value::Char(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Boolean(x), Value::Boolean(y)) => Ok(Value::Boolean(*x == *y)),
             (Value::Fn(_, x), Value::Fn(_, y)) => Ok(Value::Boolean(Rc::ptr_eq(&x, &y))),
@@ -474,10 +482,45 @@ impl Value {
     pub fn eval_iter(&self, r: SrcRef) -> ExecResult<Box<ForgeIter>> {
         match self {
             Value::Range(x, y) => Ok(Box::new((*x as i64..*y as i64).map(|v| Value::Number(v as f64)))),
-            Value::String(s) => Ok(Box::new(s.chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
-            Value::List(l) => Ok(Box::new(l.as_ref().clone().into_iter())),
+            Value::String(s) => Ok(Box::new(s.borrow().chars().collect::<Vec<_>>().into_iter().map(|c| Value::Char(c)))),
+            Value::List(l) => Ok(Box::new(l.borrow().clone().into_iter())),
             Value::Custom(c) => c.eval_iter(r),
             _ => Err(ExecError::At(r, Box::new(ExecError::NotIterable(self.get_type_name())))),
+        }
+    }
+
+    pub fn assign_index(&mut self, index: &Value, rhs: Value, r_idx: SrcRef, r_rhs: SrcRef) -> ExecResult<()> {
+        let byte_indices = |s: &str, (a, b)| Ok((
+            s
+                .char_indices()
+                .nth(a)
+                .ok_or_else(|| ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))?.0,
+            s
+                .char_indices()
+                .nth(b)
+                .ok_or_else(|| ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))?.0,
+        ));
+        match (&self, index, &rhs) {
+            (Value::String(s), Value::Number(i), Value::Char(new_c)) => {
+                let mut s = s.borrow_mut();
+                let byte_idxs = byte_indices(&s, (*i as usize, *i as usize + 1))?;
+                Ok(s.replace_range(byte_idxs.0..byte_idxs.1, &new_c.to_string())
+            },
+            (Value::String(_), Value::Number(_), rhs) => Err(ExecError::CannotIndexAssign(r_rhs, self.get_type_name(), rhs.get_type_name())),
+            (Value::String(s), Value::Range(a, b), Value::String(new_s)) => {
+                let mut s = s.borrow_mut();
+                let byte_idxs = byte_indices(&s, (*a as usize, *b as usize))?;
+                Ok(s.replace_range(byte_idxs.0..byte_idxs.1, &new_s.borrow())
+            },
+            (Value::String(_), Value::Range(_, _), rhs) => Err(ExecError::CannotIndexAssign(r_rhs, self.get_type_name(), rhs.get_type_name())),
+            (Value::List(l), Value::Number(i), _) => {
+                l
+                    .borrow_mut()
+                    .get_mut(*i as usize)
+                    .map(|v| *v = rhs)
+                    .ok_or_else(|| ExecError::At(r_idx, Box::new(ExecError::InvalidIndex(self.get_type_name(), index.clone()))))
+            },
+            (this, index, _) => Err(ExecError::CannotIndex(r_idx, this.get_type_name(), index.get_type_name())),
         }
     }
 }
@@ -503,7 +546,7 @@ impl PartialEq<i64> for Value {
 impl<'a> PartialEq<&'a str> for Value {
     fn eq(&self, other: &&'a str) -> bool {
         match self {
-            Value::String(x) => x.as_str().eq(*other),
+            Value::String(x) => x.borrow().eq(*other),
             _ => false,
         }
     }
@@ -556,13 +599,13 @@ impl From<bool> for Value {
 
 impl<'a> From<&'a str> for Value {
     fn from(other: &'a str) -> Self {
-        Value::String(Rc::new(other.to_string()))
+        Value::String(Rc::new(RefCell::new(other.to_string())))
     }
 }
 
 impl From<String> for Value {
     fn from(other: String) -> Self {
-        Value::String(Rc::new(other))
+        Value::String(Rc::new(RefCell::new(other)))
     }
 }
 
@@ -574,6 +617,6 @@ impl From<Range<i64>> for Value {
 
 impl<T: Into<Value>> From<Vec<T>> for Value {
     fn from(other: Vec<T>) -> Self {
-        Value::List(Rc::new(other.into_iter().map(|i| i.into()).collect()))
+        Value::List(Rc::new(RefCell::new(other.into_iter().map(|i| i.into()).collect())))
     }
 }

@@ -19,13 +19,14 @@ use super::{
     },
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Item {
     Lexeme(Lexeme),
     Ident,
     Primary,
     Stmt,
     Assignment,
+    LVal,
     End,
 }
 
@@ -40,6 +41,7 @@ impl fmt::Display for Item {
             Item::Primary => write!(f, "primary expression"),
             Item::Stmt => write!(f, "statement"),
             Item::Assignment => write!(f, "assignment"),
+            Item::LVal => write!(f, "l-value"),
             Item::End => write!(f, "end of input"),
         }
     }
@@ -97,6 +99,7 @@ impl<'a> ParseCtx<'a> {
         let expr = match self.peek() {
             Token(Lexeme::Number(x), r) => Node(Expr::LiteralNumber(x), r),
             Token(Lexeme::String(s), r) => Node(Expr::LiteralString(s), r),
+            Token(Lexeme::Char(c), r) => Node(Expr::LiteralChar(c), r),
             Token(Lexeme::True, r) => Node(Expr::LiteralBoolean(true), r),
             Token(Lexeme::False, r) => Node(Expr::LiteralBoolean(false), r),
             Token(Lexeme::Null, r) => Node(Expr::LiteralNull, r),
@@ -387,10 +390,10 @@ impl<'a> ParseCtx<'a> {
 
     fn read_assignment(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
         let mut this = self.clone();
-        let (lvalue, max_err) = match this.read_lvalue() {
-            Ok((lvalue, err)) => {
+        let (Node(expr, expr_r), max_err) = match this.read_logical() {
+            Ok((expr, err)) => {
                 *self = this;
-                (lvalue, err)
+                (expr, err)
             },
             Err(err) => return Err(err),
         };
@@ -398,48 +401,82 @@ impl<'a> ParseCtx<'a> {
         match self.peek() {
             Token(Lexeme::Assign, r) => {
                 self.advance();
+                let lvalue = Node(expr, expr_r).into_lvalue(r.union(&expr_r)).map_err(|err| err.max(max_err.clone()))?;
                 let (operand, err) = self.read_logical()?;
-                let r_union = r.union(&lvalue.1).union(&operand.1);
+                let r_union = r.union(&expr_r).union(&operand.1);
                 Ok((Node(Expr::BinaryAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
             },
             Token(Lexeme::PlusEq, r) => {
                 self.advance();
+                let lvalue = Node(expr, expr_r).into_lvalue(r.union(&expr_r)).map_err(|err| err.max(max_err.clone()))?;
                 let (operand, err) = self.read_logical()?;
-                let r_union = r.union(&lvalue.1).union(&operand.1);
+                let r_union = r.union(&expr_r).union(&operand.1);
                 Ok((Node(Expr::BinaryAddAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
             },
             Token(Lexeme::MinusEq, r) => {
                 self.advance();
+                let lvalue = Node(expr, expr_r).into_lvalue(r.union(&expr_r)).map_err(|err| err.max(max_err.clone()))?;
                 let (operand, err) = self.read_logical()?;
-                let r_union = r.union(&lvalue.1).union(&operand.1);
+                let r_union = r.union(&expr_r).union(&operand.1);
                 Ok((Node(Expr::BinarySubAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
             },
             Token(Lexeme::StarEq, r) => {
                 self.advance();
+                let lvalue = Node(expr, expr_r).into_lvalue(r.union(&expr_r)).map_err(|err| err.max(max_err.clone()))?;
                 let (operand, err) = self.read_logical()?;
-                let r_union = r.union(&lvalue.1).union(&operand.1);
+                let r_union = r.union(&expr_r).union(&operand.1);
                 Ok((Node(Expr::BinaryMulAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
             },
             Token(Lexeme::SlashEq, r) => {
                 self.advance();
+                let lvalue = Node(expr, expr_r).into_lvalue(r.union(&expr_r)).map_err(|err| err.max(max_err.clone()))?;
                 let (operand, err) = self.read_logical()?;
-                let r_union = r.union(&lvalue.1).union(&operand.1);
+                let r_union = r.union(&expr_r).union(&operand.1);
                 Ok((Node(Expr::BinaryDivAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
             },
             Token(Lexeme::PercentEq, r) => {
                 self.advance();
+                let lvalue = Node(expr, expr_r).into_lvalue(r.union(&expr_r)).map_err(|err| err.max(max_err.clone()))?;
                 let (operand, err) = self.read_logical()?;
-                let r_union = r.union(&lvalue.1).union(&operand.1);
+                let r_union = r.union(&expr_r).union(&operand.1);
                 Ok((Node(Expr::BinaryRemAssign(r, lvalue, Box::new(operand)), r_union), err.max(max_err)))
             },
-            Token(l, r) => Err(expected(Item::Assignment, Item::Lexeme(l), r).max(max_err)),
+            Token(l, r) => Ok((Node(expr, expr_r), expected(Item::Assignment, Item::Lexeme(l), r).max(max_err))),
         }
     }
 
     fn read_lvalue(&mut self) -> ParseResult<(Node<LVal>, ParseError)> {
-        self.read_ident()
-            .map(|i| (Node(LVal::Local(Node(i.0, i.1)), i.1), ParseError::Phoney))
-            .map_err(|err| err.while_parsing("lvalue"))
+        const ELEMENT: &'static str = "lvalue";
+
+        let mut this = self.clone();
+        let max_err = match this.read_index() {
+            Ok((r, index, err)) => {
+                *self = this;
+                unimplemented!();
+                //return Ok((index, err))
+            },
+            Err(err) => err,
+        };
+
+        let mut this = self.clone();
+        let max_err = match this.read_member() {
+            Ok((r, member, err)) => {
+                *self = this;
+                unimplemented!();
+                //return Ok((member, err))
+            },
+            Err(err) => err.max(max_err),
+        };
+
+        let max_err = match self.read_ident() {
+            Ok(ident) => {
+                return Ok((Node(LVal::Local(Node(ident.0, ident.1)), ident.1), ParseError::Phoney))
+            },
+            Err(err) => err.while_parsing(ELEMENT).max(max_err),
+        };
+
+        let next = self.peek();
+        Err(expected(Item::LVal, Item::Lexeme(next.0), next.1).max(max_err))
     }
 
     fn read_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {

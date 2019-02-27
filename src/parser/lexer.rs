@@ -33,6 +33,7 @@ pub enum Lexeme {
     // Literals
     Ident(String),
     String(String),
+    Char(char),
     Number(f64),
     True, False,
     Null,
@@ -91,6 +92,7 @@ impl fmt::Display for Lexeme {
 
             Lexeme::Ident(s) => write!(f, "{}", s),
             Lexeme::String(s) => write!(f, "\"{}\"", s),
+            Lexeme::Char(c) => write!(f, "\"{}\"", c),
             Lexeme::Number(x) => write!(f, "{}", x),
             Lexeme::True => write!(f, "true"),
             Lexeme::False => write!(f, "false"),
@@ -145,6 +147,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
         Default,
         Comment,
         String,
+        Char,
         Number,
         Ident,
     }
@@ -236,6 +239,11 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     start_loc = loc;
                     state = State::String;
                 },
+                '\'' => {
+                    strbuf.clear();
+                    start_loc = loc;
+                    state = State::Char;
+                },
                 '0' ... '9' => {
                     strbuf.clear();
                     start_loc = loc;
@@ -263,6 +271,27 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
             State::String => match c {
                 '"' => /*"*/ {
                     tokens.push(Token(Lexeme::String(strbuf.clone()), SrcRef::many(start_loc, loc.next_col(true))));
+                    state = State::Default;
+                },
+                '\0' => {
+                    errors.push(ParseError::At(
+                        SrcRef::end(),
+                        Box::new(ParseError::ExpectedDelimiter('"')), /*"*/
+                    ));
+                    break;
+                },
+                c => strbuf.push(c),
+            },
+            State::Char => match c {
+                '\'' => {
+                    if strbuf.len() == 1 {
+                        tokens.push(Token(Lexeme::Char(strbuf.char_indices().next().unwrap().1), SrcRef::many(start_loc, loc.next_col(true))));
+                    } else {
+                        errors.push(ParseError::At(
+                            SrcRef::many(start_loc, loc.next_col(true)),
+                            Box::new(ParseError::CharTooLong),
+                        ));
+                    }
                     state = State::Default;
                 },
                 '\0' => {

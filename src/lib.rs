@@ -30,6 +30,7 @@ use std::{
     ops::DerefMut,
     rc::Rc,
 };
+use parser::ParseError;
 
 pub struct EngineBuilder {
     io: Box<dyn Io>,
@@ -69,8 +70,9 @@ impl Engine {
     }
 
     pub fn eval(&mut self, expr_str: &str) -> ForgeResult<Value> {
+        let map_src = |err: ParseError| ForgeError::InSrc(expr_str.to_string(), Box::new(err.into()));
         let mut eval_fn = || {
-            let expr = parser::Parser::new(expr_str)?.parse_expr()?;
+            let expr = parser::Parser::new(expr_str).map_err(map_src)?.parse_expr()?;
 
             // TODO: Remove this
             //expr.print_debug(0);
@@ -84,8 +86,9 @@ impl Engine {
     }
 
     pub fn exec(&mut self, module: &str) -> ForgeResult<()> {
+        let map_src = |err: ParseError| ForgeError::InSrc(module.to_string(), Box::new(err.into()));
         let mut exec_fn = || {
-            let stmts = parser::Parser::new(module)?.parse_stmts()
+            let stmts = parser::Parser::new(module).map_err(map_src)?.parse_stmts()
                 .map_err(|err| ForgeError::InSrc(module.to_string(), Box::new(err.into())))?;
 
             for stmt in &stmts {
@@ -100,7 +103,8 @@ impl Engine {
     }
 
     pub fn prompt(&mut self, input: &str) -> ForgeResult<Option<Value>> {
-        match parser::Parser::new(input)?.parse_stmts() {
+        let map_src = |err: ParseError| ForgeError::InSrc(input.to_string(), Box::new(err.into()));
+        match parser::Parser::new(input).map_err(map_src)?.parse_stmts() {
             Ok(stmts) => {
                 for stmt in &stmts {
                     self.global_scope.eval_stmt(&stmt.0, self.io.deref_mut(), &Rc::new(input.to_string()))?;
@@ -108,9 +112,7 @@ impl Engine {
                 Ok(None)
             },
             Err(stmts_err) => Ok(Some(self.global_scope.eval_expr(
-                &parser::Parser::new(input)?.parse_expr().map_err(|err|
-                    ForgeError::InSrc(input.to_string(), Box::new(err.max(stmts_err).into()))
-                )?,
+                &parser::Parser::new(input).map_err(|err| err.max(stmts_err)).map_err(map_src)?.parse_expr().map_err(map_src)?,
                 self.io.deref_mut(),
                 &Rc::new(input.to_string()),
             ).map_err(|err| ForgeError::InSrc(input.to_string(), Box::new(err.into())))?)),

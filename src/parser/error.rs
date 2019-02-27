@@ -6,10 +6,12 @@ use super::{
 };
 use crate::output;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ParseError {
     Phoney,
+    NotAnLValue,
     UnexpectedChar(char),
+    CharTooLong,
     ExpectedDelimiter(char),
     Expected(Item, Item), // Expected, found
     ReservedKeyword(String),
@@ -64,10 +66,20 @@ impl ParseError {
             writeln!(f, "{}...while parsing {}...", indent, elem)?;
         }
         match self {
+            ParseError::NotAnLValue => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}This is not an l-value and cannot be assigned to.", indent))
+            },
             ParseError::UnexpectedChar(c) => {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
                     .and_then(|_| writeln!(f, "{}Unexpected character '{}' in code.", indent, c))
+            },
+            ParseError::CharTooLong => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Character literal may only be 1 character long.", indent))
             },
             ParseError::ExpectedDelimiter(c) => {
                 Ok(())

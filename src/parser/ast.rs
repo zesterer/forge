@@ -1,5 +1,9 @@
 use std::rc::Rc;
-use super::SrcRef;
+use super::{
+    ParseError,
+    ParseResult,
+    SrcRef,
+};
 
 #[derive(Debug)]
 pub struct Node<T>(pub T, pub SrcRef);
@@ -9,6 +13,7 @@ pub enum Expr {
     None,
     LiteralNumber(f64),
     LiteralString(String),
+    LiteralChar(char),
     LiteralBoolean(bool),
     LiteralNull,
     Ident(Node<String>),
@@ -53,6 +58,7 @@ pub enum Expr {
 #[derive(Debug)]
 pub enum LVal {
     Local(Node<String>),
+    Index(Box<Node<Expr>>, Box<Node<Expr>>),
 }
 
 #[derive(Debug)]
@@ -86,12 +92,23 @@ impl std::fmt::Display for Spaces {
     }
 }
 
+impl Node<Expr> {
+    pub fn into_lvalue(self, r: SrcRef) -> ParseResult<Node<LVal>> {
+        match self {
+            Node(Expr::Ident(ident), r) => Ok(Node(LVal::Local(ident), r)),
+            Node(Expr::Index(_, expr, index), r) => Ok(Node(LVal::Index(expr, index), r)),
+            Node(_, _) => Err(ParseError::At(r, Box::new(ParseError::NotAnLValue))),
+        }
+    }
+}
+
 impl Expr {
     pub fn print_debug(&self, depth: usize) {
         match self {
             Expr::None => println!("{}None expression", Spaces(depth)),
             Expr::LiteralNumber(x) => println!("{}Number literal '{}'", Spaces(depth), x),
             Expr::LiteralString(s) => println!("{}String literal '{}'", Spaces(depth), s),
+            Expr::LiteralChar(c) => println!("{}Character literal '{}'", Spaces(depth), c),
             Expr::LiteralBoolean(b) => println!("{}Boolean literal '{}'", Spaces(depth), b),
             Expr::LiteralNull => println!("{}Null literal", Spaces(depth)),
             Expr::Ident(s) => println!("{}Identifier '{}'", Spaces(depth), s.0),
@@ -254,15 +271,14 @@ impl Expr {
 }
 
 impl LVal {
-    pub fn to_expr(self) -> Expr {
-        match self {
-            LVal::Local(i) => Expr::Ident(i),
-        }
-    }
-
     pub fn print_debug(&self, depth: usize) {
         match self {
-            LVal::Local(i) => println!("{}Local '{}'", Spaces(depth), i.0),
+            LVal::Local(i) => println!("{}Local l-value '{}'", Spaces(depth), i.0),
+            LVal::Index(expr, index) => {
+                println!("{}Indexed l-value", Spaces(depth));
+                expr.0.print_debug(depth + 1);
+                index.0.print_debug(depth + 1);
+            },
         }
     }
 }

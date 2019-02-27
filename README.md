@@ -74,7 +74,7 @@ $ forge my_script.fg
 - [x] Lists
 - [x] Indexing and ranges
 - [x] `clone` and `mirror` operators
-- [ ] Lvalues vs rvalues
+- [x] Lvalues vs rvalues
 - [ ] Structures
 - [ ] Enums
 - [ ] Objects
