@@ -98,7 +98,7 @@ Forge has several distinct types:
 - Boolean
 - Range
 - Function
-- List *Currently unimplemented*
+- List
 - Map *Currently unimplemented*
 - Object *Currently unimplemented*
 - Custom *Used to call to and from Rust*
@@ -122,7 +122,6 @@ Errors can be emitted at compile-time or run-time. Below are a few examples.
 Parser errors:
 
 ```
->> var x = 1; if x > 2 { print "Hello, world!" oops; }
 [ERROR] Parsing error at 1:45...
    ...while parsing if-else statement...
    ...while parsing print statement...
