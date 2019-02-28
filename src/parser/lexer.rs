@@ -337,6 +337,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     "fn" => Lexeme::Fn,
                     "this" => Lexeme::This,
                     "var" => Lexeme::Var,
+                    "var" => Lexeme::Var,
                     "let" => Lexeme::Var, // Temp
                     "print" => Lexeme::Print,
                     "input" => Lexeme::Input,

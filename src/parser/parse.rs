@@ -117,10 +117,20 @@ impl<'a> ParseCtx<'a> {
                 return Ok((fn_expr, Some(err)));
             },
             Token(Lexeme::LBrack, _r) => {
+                // Try reading list first
                 let mut this = self.clone();
-                let (list_expr, err) = this.read_list_expr()?;
+                let max_err = match this.read_list_expr() {
+                    Ok((expr, err)) => {
+                        *self = this;
+                        return Ok((expr, Some(err)));
+                    },
+                    Err(err) => err,
+                };
+                // Then a map
+                let mut this = self.clone();
+                let (map_expr, err) = this.read_map_expr().map_err(|err| err.max(max_err.clone()))?;
                 *self = this;
-                return Ok((list_expr, Some(err)));
+                return Ok((map_expr, Some(err.max(max_err))));
             },
             Token(l, r) => return Err(expected(Item::Primary, Item::Lexeme(l), r)),
         };
@@ -645,6 +655,86 @@ impl<'a> ParseCtx<'a> {
             },
             Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RParen), Item::Lexeme(l), r).max(max_err)),
         }
+    }
+
+    fn read_map_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        const ELEMENT: &'static str = "map";
+
+        let r_start = match self.peek() {
+            Token(Lexeme::LBrack, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::LBrack), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (items, max_err) = self.read_maplist().map_err(|err| err.while_parsing(ELEMENT))?;
+
+        match self.peek() {
+            Token(Lexeme::RBrack, r) => {
+                self.advance();
+                let r_union = items.1.union(&r_start).union(&r);
+                Ok((Node(Expr::Map(items), r_union), max_err.while_parsing(ELEMENT)))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RBrack), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+        }
+    }
+
+    fn read_maplist(&mut self) -> ParseResult<(Node<Vec<(Node<Expr>, Node<Expr>)>>, ParseError)> {
+        let mut maps = vec![];
+        let mut r_total = SrcRef::empty();
+        let mut max_err = ParseError::Phoney;
+
+        loop {
+            let mut this = self.clone();
+            let key = match this.read_expr() {
+                Ok((expr, err)) => {
+                    r_total = r_total.union(&expr.1);
+                    max_err = err.max(max_err);
+                    expr
+                },
+                Err(err) => {
+                    max_err = err.max(max_err);
+                    break;
+                },
+            };
+
+            match this.peek() {
+                Token(Lexeme::Colon, r) => {
+                    this.advance();
+                    r_total = r_total.union(&r);
+                },
+                Token(l, r) => {
+                    max_err = expected(Item::Lexeme(Lexeme::Colon), Item::Lexeme(l), r).max(max_err);
+                    break;
+                },
+            }
+
+            let val = match this.read_expr() {
+                Ok((expr, err)) => {
+                    r_total = r_total.union(&expr.1);
+                    max_err = err.max(max_err);
+                    expr
+                },
+                Err(err) => {
+                    max_err = err.max(max_err);
+                    break;
+                },
+            };
+
+            *self = this;
+            maps.push((key, val));
+
+            match self.peek() {
+                Token(Lexeme::Comma, r) => {
+                    self.advance();
+                    r_total = r_total.union(&r);
+                },
+                Token(l, r) => {
+                    max_err = expected(Item::Lexeme(Lexeme::Comma), Item::Lexeme(l), r).max(max_err);
+                    break;
+                },
+            }
+        }
+
+        Ok((Node(maps, r_total), max_err))
     }
 
     fn read_expr_stmt(&mut self) -> ParseResult<(Node<Stmt>, ParseError)> {

@@ -76,6 +76,9 @@ $ forge my_script.fg
 - [x] Indexing and ranges
 - [x] `clone` and `mirror` operators
 - [x] Lvalues vs rvalues
+- [x] Maps
+- [x] Map construction
+[ [ ] Map iteration
 - [ ] Structures
 - [ ] Enums
 - [ ] Objects
@@ -125,7 +128,7 @@ Forge has several distinct types:
 - Range
 - Function
 - List
-- Map *Currently unimplemented*
+- Map
 - Object *Currently unimplemented*
 - Custom *Used to call to and from Rust*
 - Null

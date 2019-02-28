@@ -19,6 +19,7 @@ use std::{
     any::Any,
     cell::RefCell,
 };
+use hashbrown::HashMap;
 use crate::{
     output,
     parser::{
@@ -508,10 +509,24 @@ pub trait Scope {
                     list_items.push(
                         self.eval_expr(&item.0, io, src)
                             .map_err(|err| ExecError::At(item.1, Box::new(err)))
-                            .map_err(src_map)?
+                            .map_err(src_map)?,
                     );
                 }
                 Ok(Value::List(Rc::new(RefCell::new(list_items))))
+            },
+            Expr::Map(maps) => {
+                let mut hmap = HashMap::new();
+                for (key, val) in &maps.0 {
+                    hmap.insert(
+                        self.eval_expr(&key.0, io, src)
+                            .map_err(|err| ExecError::At(key.1, Box::new(err)))
+                            .map_err(src_map)?,
+                        self.eval_expr(&val.0, io, src)
+                            .map_err(|err| ExecError::At(val.1, Box::new(err)))
+                            .map_err(src_map)?,
+                    );
+                }
+                Ok(Value::Map(Rc::new(RefCell::new(hmap))))
             },
 
             Expr::UnaryNot(r, expr) =>

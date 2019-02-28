@@ -1,0 +1,9 @@
+var owners_and_pets = [
+	"mary": "dog",
+	"alexio": "hamster",
+	"dave": "rabbit",
+];
+
+print "May owns a " + owners_and_pets["mary"];
+print "Alexio owns a " + owners_and_pets["alexio"];
+print "Dave owns a " + owners_and_pets["dave"];

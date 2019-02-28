@@ -18,6 +18,7 @@ pub enum Expr {
     LiteralNull,
     Ident(Node<String>),
     List(Node<Vec<Node<Expr>>>),
+    Map(Node<Vec<(Node<Expr>, Node<Expr>)>>),
 
     Call(SrcRef, Box<Node<Expr>>, Node<Vec<Node<Expr>>>),
     DotAccess(SrcRef, Box<Node<Expr>>, Node<String>),
@@ -117,7 +118,16 @@ impl Expr {
                 println!("{}List", Spaces(depth));
                 for item in &items.0 {
                     println!("{}Item", Spaces(depth + 1));
-                    item.0.print_debug(depth + 1);
+                    item.0.print_debug(depth + 2);
+                }
+            },
+            Expr::Map(items) => {
+                println!("{}List", Spaces(depth));
+                for (key, val) in &items.0 {
+                    println!("{}Key", Spaces(depth + 1));
+                    key.0.print_debug(depth + 2);
+                    println!("{}Value", Spaces(depth + 1));
+                    val.0.print_debug(depth + 2);
                 }
             },
             Expr::Call(_, expr, params) => {
