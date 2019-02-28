@@ -47,4 +47,3 @@ fn main() {
         Some(_) => usage(),
     }
 }
-

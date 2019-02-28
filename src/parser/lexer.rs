@@ -124,14 +124,14 @@ impl fmt::Display for Lexeme {
     }
 }
 
-const RESERVED_KEYWORDS: [&'static str; 35] = [
-    "let",      "self",   "Self",     "extern", "move",
+const RESERVED_KEYWORDS: [&'static str; 34] = [
+    "self",   "Self",     "extern", "move",     "async",
     "mut",      "enum",   "continue", "string", "yield",
     "bool",     "const",  "mut",      "loop",   "pub",
     "priv",     "ref",    "match",    "use",    "where",
     "do",       "clone",  "type",     "class",  "base",
     "super",    "struct", "trait",    "impl",   "of",
-    "with",     "when",   "then",     "await",  "async",
+    "with",     "when",   "then",     "await",
 ];
 
 #[derive(Clone, Debug)]
@@ -337,6 +337,7 @@ pub fn lex(code: &str) -> ParseResult<Vec<Token>> {
                     "fn" => Lexeme::Fn,
                     "this" => Lexeme::This,
                     "var" => Lexeme::Var,
+                    "let" => Lexeme::Var, // Temp
                     "print" => Lexeme::Print,
                     "input" => Lexeme::Input,
                     "clone" => Lexeme::Clone,

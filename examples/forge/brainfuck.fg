@@ -31,7 +31,7 @@ var run = |code| {
 
 				# This is definitely a hack
 				while inp[0] == null {
-					inp = (input ' ' as str);
+					inp = (input ' ') as str;
 				}
 				tape[tape_ptr] = inp[0] as num;
 				inp[0..1] = "";
