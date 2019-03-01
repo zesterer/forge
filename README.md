@@ -41,7 +41,7 @@ for square in squares {
 
 Using Forge is similar in principle to using Python.
 Once compiled, running the shell or executing scripts with the interpreter is trivial.
-You'll need to compile the `cli/` crate to gain access to the interpeter binary.
+You'll need to compile the `cli/` crate to gain access to the interpreter binary.
 
 To access the REPL shell, run:
 
