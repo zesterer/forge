@@ -78,7 +78,8 @@ $ forge my_script.fg
 - [x] Lvalues vs rvalues
 - [x] Maps
 - [x] Map construction
-[ [ ] Map iteration
+- [ ] Map iteration
+- [ ] Immutability by default
 - [ ] Structures
 - [ ] Enums
 - [ ] Objects
