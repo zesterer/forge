@@ -1,13 +1,5 @@
 var run = |code| {
-	# TODO: Find a better syntax to create long arrays.. maybe [x] * n?
-	var tape_1000 = [];
-	for _ in 0..100 {
-		tape_1000 += [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-	}
-	var tape = [];
-	for _ in 0..30 {
-		tape += tape_1000;
-	}
+	var tape = [0; 10000];
 
 	var tape_ptr = 0;
 	var code_ptr = 0;

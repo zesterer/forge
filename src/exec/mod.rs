@@ -40,6 +40,7 @@ pub enum ExecError {
     NotIterator,
     NotAType,
     InvalidIndex(String, Value),
+    NotNumeric(String),
     NotIterable(String),
     CannotCall(String),
     CannotIndex(SrcRef, String, String),
@@ -86,6 +87,11 @@ impl ExecError {
                 Ok(())
                     .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
                     .and_then(|_| writeln!(f, "{}Yielded value is not an iterator.", output::Repeat(' ', (depth + 1) * 3)))
+            },
+            ExecError::NotNumeric(s) => {
+                Ok(())
+                    .and_then(|_| output::fmt_ref(f, r, src, depth + 1))
+                    .and_then(|_| writeln!(f, "{}Value of type '{}' is not numeric.", output::Repeat(' ', (depth + 1) * 3), s))
             },
             ExecError::NotIterable(s) => {
                 Ok(())
@@ -178,6 +184,7 @@ impl ExecError {
             ExecError::NotAType => Ok(()),
             ExecError::InvalidIndex(_, _) => Ok(()),
             ExecError::NotIterator => Ok(()),
+            ExecError::NotNumeric(_) => Ok(()),
             ExecError::NotIterable(_) => Ok(()),
             ExecError::CannotIndex(_, _, _) => Ok(()),
             ExecError::CannotIndexAssign(_, _, _) => Ok(()),
@@ -513,6 +520,32 @@ pub trait Scope {
                     );
                 }
                 Ok(Value::List(Rc::new(RefCell::new(list_items))))
+            },
+            Expr::ListClone(item, num) => {
+                match self.eval_expr(&num.0, io, src)
+                    .map_err(|err| ExecError::At(num.1, Box::new(err)))
+                    .map_err(src_map)?
+                {
+                    Value::Number(x) => {
+                        let mut list_items = Vec::with_capacity(x as usize);
+                        let item_val = self.eval_expr(&item.0, io, src)
+                            .map_err(|err| ExecError::At(item.1, Box::new(err)))
+                            .map_err(src_map)?;
+
+                        for _ in 0..x as usize {
+                            list_items.push(
+                                item_val.eval_clone(UnaryOpRef { op: item.1.union(&num.1), expr: item.1 })
+                                    .map_err(|err| ExecError::At(item.1, Box::new(err)))
+                                    .map_err(src_map)?
+                            );
+                        }
+
+                        Ok(Value::List(Rc::new(RefCell::new(list_items))))
+                    },
+                    val => Err(ExecError::NotNumeric(val.get_type_name()))
+                        .map_err(|err| ExecError::At(num.1, Box::new(err)))
+                        .map_err(src_map),
+                }
             },
             Expr::Map(maps) => {
                 let mut hmap = HashMap::new();

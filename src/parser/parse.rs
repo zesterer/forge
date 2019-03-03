@@ -126,6 +126,16 @@ impl<'a> ParseCtx<'a> {
                     },
                     Err(err) => err,
                 };
+
+                // Then list clone
+                let mut this = self.clone();
+                let max_err = match this.read_list_clone_expr() {
+                    Ok((expr, err)) => {
+                        *self = this;
+                        return Ok((expr, Some(err)));
+                    },
+                    Err(err) => err.max(max_err),
+                };
                 // Then a map
                 let mut this = self.clone();
                 let (map_expr, err) = this.read_map_expr().map_err(|err| err.max(max_err.clone()))?;
@@ -599,6 +609,33 @@ impl<'a> ParseCtx<'a> {
                 self.advance();
                 let r_union = items.1.union(&r_start).union(&r);
                 Ok((Node(Expr::List(items), r_union), max_err.while_parsing(ELEMENT)))
+            },
+            Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RBrack), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+        }
+    }
+
+    fn read_list_clone_expr(&mut self) -> ParseResult<(Node<Expr>, ParseError)> {
+        const ELEMENT: &'static str = "list";
+
+        let r_start = match self.peek() {
+            Token(Lexeme::LBrack, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::LBrack), Item::Lexeme(l), r).while_parsing(ELEMENT)),
+        };
+
+        let (item, max_err) = self.read_expr().map_err(|err| err.while_parsing(ELEMENT))?;
+
+        let r_middle = match self.peek() {
+            Token(Lexeme::Semicolon, r) => { self.advance(); r },
+            Token(l, r) => return Err(expected(Item::Lexeme(Lexeme::Semicolon), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
+        };
+
+        let (num, max_err) = self.read_expr().map_err(|err| err.max(max_err).while_parsing(ELEMENT))?;
+
+        match self.peek() {
+            Token(Lexeme::RBrack, r) => {
+                self.advance();
+                let r_union = item.1.union(&num.1).union(&r_start).union(&r_middle).union(&r);
+                Ok((Node(Expr::ListClone(Box::new(item), Box::new(num)), r_union), max_err.while_parsing(ELEMENT)))
             },
             Token(l, r) => Err(expected(Item::Lexeme(Lexeme::RBrack), Item::Lexeme(l), r).max(max_err).while_parsing(ELEMENT)),
         }

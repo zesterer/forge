@@ -18,6 +18,7 @@ pub enum Expr {
     LiteralNull,
     Ident(Node<String>),
     List(Node<Vec<Node<Expr>>>),
+    ListClone(Box<Node<Expr>>, Box<Node<Expr>>),
     Map(Node<Vec<(Node<Expr>, Node<Expr>)>>),
 
     Call(SrcRef, Box<Node<Expr>>, Node<Vec<Node<Expr>>>),
@@ -120,6 +121,13 @@ impl Expr {
                     println!("{}Item", Spaces(depth + 1));
                     item.0.print_debug(depth + 2);
                 }
+            },
+            Expr::ListClone(item, num) => {
+                println!("{}List clone", Spaces(depth));
+                println!("{}Item", Spaces(depth + 1));
+                item.0.print_debug(depth + 2);
+                println!("{}Number", Spaces(depth + 1));
+                num.0.print_debug(depth + 2);
             },
             Expr::Map(items) => {
                 println!("{}List", Spaces(depth));
