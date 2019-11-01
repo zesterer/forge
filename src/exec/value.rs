@@ -60,7 +60,7 @@ impl Type {
     }
 }
 
-pub trait ForgeIter = Iterator<Item=Value> + fmt::Debug;
+pub trait ForgeIter = Iterator<Item=Value>;// + fmt::Debug;
 
 #[derive(Clone)]
 pub enum Value {
@@ -669,13 +669,13 @@ impl Value {
             (Value::String(s), Value::Number(i), Value::Char(new_c)) => {
                 let mut s = s.borrow_mut();
                 let byte_idxs = byte_indices(&s, (*i as usize, *i as usize + 1))?;
-                Ok(s.replace_range(byte_idxs.0..byte_idxs.1, &new_c.to_string())
+                Ok(s.replace_range(byte_idxs.0..byte_idxs.1, &new_c.to_string()))
             },
             (Value::String(_), Value::Number(_), rhs) => Err(ExecError::CannotIndexAssign(r_rhs, self.get_type_name(), rhs.get_type_name())),
             (Value::String(s), Value::Range(a, b), Value::String(new_s)) => {
                 let mut s = s.borrow_mut();
                 let byte_idxs = byte_indices(&s, (*a as usize, *b as usize))?;
-                Ok(s.replace_range(byte_idxs.0..byte_idxs.1, &new_s.borrow())
+                Ok(s.replace_range(byte_idxs.0..byte_idxs.1, &new_s.borrow()))
             },
             (Value::String(_), Value::Range(_, _), rhs) => Err(ExecError::CannotIndexAssign(r_rhs, self.get_type_name(), rhs.get_type_name())),
             (Value::List(l), Value::Number(i), _) => {

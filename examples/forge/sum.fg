@@ -1,0 +1,7 @@
+var total = 0;
+var i = 0;
+while i < 10000000 {
+	i += 1;
+	total += i;
+}
+print total;

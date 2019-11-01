@@ -13,7 +13,7 @@ fn prompt() {
 
     let mut rl = Editor::<()>::new();
     while let Ok(line) = rl.readline(">> ") {
-        rl.add_history_entry(line.as_ref());
+        rl.add_history_entry(line.clone());
 
         let _ = engine.prompt(&line)
             .map(|val| val.map(|val| {

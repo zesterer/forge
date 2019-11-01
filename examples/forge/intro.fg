@@ -1,0 +1,5 @@
+let my_list = ["apples", "bananas", "oranges"];
+
+for item in my_list {
+	print("I went to the shop and bought " + item);
+}

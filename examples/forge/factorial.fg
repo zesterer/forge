@@ -1,0 +1,14 @@
+var fac = |fac, n| {
+	if n < 2 {
+		return n;
+	} else {
+		return fac(fac, n - 1) * n;
+	}
+};
+
+var arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+for x in arr {
+	for y in arr {
+		print fac(fac, y);
+	}
+}

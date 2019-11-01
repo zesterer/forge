@@ -5,5 +5,5 @@ authors = ["Joshua Barretto <joshua.s.barretto@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rustyline = "3.0"
+rustyline = "5.0"
 forge = { path = "../" }
